@@ -78,8 +78,8 @@ export default function ClientList({ clients, onEdit, onDeleteSuccess, isLoading
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Dirección</TableHead>
-                <TableHead><Phone className="inline-block mr-1 h-4 w-4"/>Teléfono</TableHead>
-                <TableHead><Mail className="inline-block mr-1 h-4 w-4"/>Email</TableHead>
+                <TableHead><><Phone className="inline-block mr-1 h-4 w-4"/>Teléfono</></TableHead>
+                <TableHead><><Mail className="inline-block mr-1 h-4 w-4"/>Email</></TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -87,18 +87,18 @@ export default function ClientList({ clients, onEdit, onDeleteSuccess, isLoading
               {clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.address || 'N/A'}</TableCell> {/* Handle null address */}
+                  <TableCell>{client.address || 'N/A'}</TableCell>
                   <TableCell>{client.telefono || 'N/A'}</TableCell>
                   <TableCell>{client.email || 'N/A'}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => onEdit(client)} disabled={deletingClientId === client.id}>
-                      <Edit className="mr-1 h-4 w-4" /> Editar
+                      <Edit className="mr-1 h-4 w-4" />Editar
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={deletingClientId === client.id}>
                           {deletingClientId === client.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                           Eliminar
+                          Eliminar
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
