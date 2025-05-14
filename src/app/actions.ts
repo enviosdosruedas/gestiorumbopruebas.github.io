@@ -1,11 +1,11 @@
 
 'use server';
 
-import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData } from '@/types';
+import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema, repartidorSchema } from '@/lib/schema';
+import { clientSchema, repartidorSchema, deliveryClientInfoSchema } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
 
 // Client Actions
@@ -21,8 +21,8 @@ export async function getClients(): Promise<Client[]> {
   }
   return data.map(client => ({
     id: client.id,
-    name: client.nombre,
-    address: client.direccion,
+    nombre: client.nombre, // Mapeado desde 'nombre'
+    direccion: client.direccion,
     telefono: client.telefono,
     email: client.email,
   })) as Client[];
@@ -37,7 +37,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   const { name, address, telefono, email } = validationResult.data;
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  if (address) { // Only validate if address is provided
+  if (address) { 
     try {
       validatedAddressInfo = await validateAddress({ address });
     } catch (error) {
@@ -45,10 +45,9 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     }
   }
 
-
   const clientDataToInsert = {
     nombre: name,
-    direccion: address,
+    direccion: address, // La tabla DDL tiene 'direccion'
     telefono: telefono || null,
     email: email || null,
   };
@@ -69,8 +68,8 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     success: true, 
     client: {
       id: newClientRecord.id,
-      name: newClientRecord.nombre,
-      address: newClientRecord.direccion,
+      nombre: newClientRecord.nombre,
+      direccion: newClientRecord.direccion,
       telefono: newClientRecord.telefono,
       email: newClientRecord.email,
     } as Client,
@@ -98,7 +97,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   }
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  if (address) { // Only validate if address is provided
+  if (address) { 
     try {
       validatedAddressInfo = await validateAddress({ address });
     } catch (error) {
@@ -130,8 +129,8 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     success: true, 
     client: {
       id: updatedClientRecord.id,
-      name: updatedClientRecord.nombre,
-      address: updatedClientRecord.direccion,
+      nombre: updatedClientRecord.nombre,
+      direccion: updatedClientRecord.direccion,
       telefono: updatedClientRecord.telefono,
       email: updatedClientRecord.email,
     } as Client,
@@ -265,5 +264,142 @@ export async function deleteRepartidorAction(id: string): Promise<{ success: boo
   }
 
   revalidatePath('/Repartidores');
+  return { success: true };
+}
+
+// Delivery Client Info (Clientes_Reparto) Actions
+export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
+  const { data, error } = await supabase
+    .from('clientes_reparto')
+    .select(`
+      id,
+      cliente_id,
+      nombre_reparto,
+      direccion_reparto,
+      rango_horario,
+      tarifa,
+      telefono_reparto,
+      created_at,
+      updated_at,
+      clientes ( nombre ) 
+    `)
+    .order('nombre_reparto', { ascending: true });
+
+  if (error) {
+    console.error('Supabase getDeliveryClientInfos error:', error.message || JSON.stringify(error));
+    throw new Error('Failed to fetch delivery client infos.');
+  }
+
+  // Transform data to match DeliveryClientInfo, including cliente_nombre
+  return data.map(item => ({
+    ...item,
+    // @ts-ignore
+    cliente_nombre: item.clientes?.nombre || 'Cliente Desconocido', 
+    // tarif should be number or null
+    tarifa: item.tarifa === null || item.tarifa === undefined ? null : Number(item.tarifa),
+
+  })) as DeliveryClientInfo[];
+}
+
+export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFormData): Promise<{ success: boolean; deliveryClientInfo?: DeliveryClientInfo; errors?: z.ZodIssue[]; message?: string }> {
+  const validationResult = deliveryClientInfoSchema.safeParse(formData);
+  if (!validationResult.success) {
+    return { success: false, errors: validationResult.error.errors };
+  }
+
+  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto } = validationResult.data;
+
+  const dataToInsert = {
+    cliente_id,
+    nombre_reparto,
+    direccion_reparto: direccion_reparto || null,
+    rango_horario: rango_horario || null,
+    tarifa: tarifa === undefined ? null : tarifa, // Asegurar que null se inserta si es undefined
+    telefono_reparto: telefono_reparto || null,
+  };
+
+  const { data: newRecord, error: insertError } = await supabase
+    .from('clientes_reparto')
+    .insert(dataToInsert)
+    .select('id, cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto, created_at, updated_at')
+    .single();
+
+  if (insertError) {
+    console.error('Supabase addDeliveryClientInfo error:', insertError.message || JSON.stringify(insertError));
+    return { success: false, message: 'Error al agregar información de cliente de reparto.' };
+  }
+  
+  revalidatePath('/ClientesReparto');
+  return { 
+    success: true, 
+    deliveryClientInfo: {
+        ...newRecord,
+        tarifa: newRecord.tarifa === null || newRecord.tarifa === undefined ? null : Number(newRecord.tarifa),
+    } as DeliveryClientInfo
+  };
+}
+
+export async function updateDeliveryClientInfoAction(id: number, formData: DeliveryClientInfoFormData): Promise<{ success: boolean; deliveryClientInfo?: DeliveryClientInfo; errors?: z.ZodIssue[]; message?: string }> {
+  const validationResult = deliveryClientInfoSchema.safeParse(formData);
+  if (!validationResult.success) {
+    return { success: false, errors: validationResult.error.errors };
+  }
+
+  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto } = validationResult.data;
+
+  const { data: recordToUpdate, error: findError } = await supabase
+    .from('clientes_reparto')
+    .select('id')
+    .eq('id', id)
+    .single();
+
+  if (findError || !recordToUpdate) {
+    console.error('Supabase find delivery client info for update error:', findError ? (findError.message || JSON.stringify(findError)) : 'Record not found');
+    return { success: false, message: 'Registro de cliente de reparto no encontrado.' };
+  }
+
+  const dataToUpdate = {
+    cliente_id,
+    nombre_reparto,
+    direccion_reparto: direccion_reparto || null,
+    rango_horario: rango_horario || null,
+    tarifa: tarifa === undefined ? null : tarifa,
+    telefono_reparto: telefono_reparto || null,
+  };
+
+  const { data: updatedRecord, error: updateError } = await supabase
+    .from('clientes_reparto')
+    .update(dataToUpdate)
+    .eq('id', id)
+    .select('id, cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto, created_at, updated_at')
+    .single();
+
+  if (updateError) {
+    console.error('Supabase updateDeliveryClientInfo error:', updateError.message || JSON.stringify(updateError));
+    return { success: false, message: 'Error al actualizar información de cliente de reparto.' };
+  }
+  
+  revalidatePath('/ClientesReparto');
+  return { 
+    success: true, 
+    deliveryClientInfo: {
+        ...updatedRecord,
+        tarifa: updatedRecord.tarifa === null || updatedRecord.tarifa === undefined ? null : Number(updatedRecord.tarifa),
+    } as DeliveryClientInfo
+  };
+}
+
+export async function deleteDeliveryClientInfoAction(id: number): Promise<{ success: boolean; message?: string }> {
+  const { error: deleteError } = await supabase
+    .from('clientes_reparto')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    console.error('Supabase deleteDeliveryClientInfo error:', deleteError.message || JSON.stringify(deleteError));
+    return { success: false, message: 'Error al eliminar información de cliente de reparto.' };
+  }
+
+  revalidatePath('/ClientesReparto');
   return { success: true };
 }

@@ -1,10 +1,11 @@
 
 export interface Client {
   id: string; // UUID from Supabase
-  name: string;
-  address: string | null; // direccion from clientes table
+  nombre: string; // Mapeado desde 'nombre' en la tabla 'clientes'
+  direccion: string | null;
   telefono?: string | null;
   email?: string | null;
+  // created_at y updated_at no están en la tabla clientes según el último DDL
 }
 
 export interface DeliveryPerson {
@@ -13,7 +14,20 @@ export interface DeliveryPerson {
   identificacion?: string | null;
   telefono?: string | null;
   vehiculo?: string | null;
-  // created_at and updated_at are not part of the 'repartidores' table as per user's DDL
+}
+
+export interface DeliveryClientInfo {
+  id: number; // serial, PK de clientes_reparto
+  cliente_id: string; // UUID, FK a clientes.id
+  nombre_reparto: string;
+  direccion_reparto: string | null;
+  rango_horario: string | null;
+  tarifa: number | null;
+  telefono_reparto: string | null;
+  created_at?: string | null; // Se maneja por DB
+  updated_at?: string | null; // Se maneja por DB trigger
+  // Para visualización, podríamos añadir el nombre del cliente principal
+  cliente_nombre?: string;
 }
 
 // Used by AI flow
@@ -61,14 +75,14 @@ export interface Database {
           telefono_reparto: string | null;
         };
         Insert: {
-          id?: number;
+          id?: number; // Opcional porque es serial
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto?: string | null;
           rango_horario?: string | null;
           tarifa?: number | null;
-          created_at?: string | null;
-          updated_at?: string | null;
+          created_at?: string | null; // Supabase lo maneja
+          updated_at?: string | null; // Supabase lo maneja
           telefono_reparto?: string | null;
         };
         Update: {
@@ -78,8 +92,8 @@ export interface Database {
           direccion_reparto?: string | null;
           rango_horario?: string | null;
           tarifa?: number | null;
-          created_at?: string | null;
-          updated_at?: string | null;
+          // created_at no se actualiza
+          updated_at?: string | null; // Supabase lo maneja
           telefono_reparto?: string | null;
         };
       };
@@ -123,12 +137,12 @@ export interface Database {
       repartos: {
         Row: {
           id: number;
-          fecha_reparto: string;
+          fecha_reparto: string; // date
           repartidor_id: string;
           cliente_id: string;
           observaciones: string | null;
-          created_at: string | null;
-          updated_at: string | null;
+          created_at: string | null; // timestamp without time zone
+          updated_at: string | null; // timestamp without time zone
           estado: string | null;
         };
         Insert: {
@@ -158,8 +172,8 @@ export interface Database {
           nombre: string;
           pass: string;
           rol: string;
-          created_at: string | null;
-          updated_at: string | null;
+          created_at: string | null; // timestamp without time zone
+          updated_at: string | null; // timestamp without time zone
           repartidor_id: string | null;
         };
         Insert: {
@@ -186,7 +200,7 @@ export interface Database {
       // Define views here if any
     };
     Functions: {
-      update_updated_at_column?: {
+      update_updated_at_column?: { // Asumo que esta función existe y se usa en triggers
         Args: {};
         Returns: unknown;
       };

@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const clientSchema = z.object({
@@ -6,7 +7,6 @@ export const clientSchema = z.object({
   telefono: z.string().max(20, "El teléfono debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
   email: z.string().email({ message: "Email inválido" }).max(100, "El email debe tener 100 caracteres o menos").optional().nullable().or(z.literal('')),
 });
-
 export type ClientFormData = z.infer<typeof clientSchema>;
 
 
@@ -16,5 +16,18 @@ export const repartidorSchema = z.object({
   telefono: z.string().max(20, "El teléfono debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
   vehiculo: z.string().max(100, "El vehículo debe tener 100 caracteres o menos").optional().nullable().or(z.literal('')),
 });
-
 export type RepartidorFormData = z.infer<typeof repartidorSchema>;
+
+
+export const deliveryClientInfoSchema = z.object({
+  cliente_id: z.string().uuid("Debe seleccionar un cliente válido."),
+  nombre_reparto: z.string().min(1, "El nombre de reparto es requerido.").max(255),
+  direccion_reparto: z.string().max(255, "La dirección de reparto debe tener 255 caracteres o menos").optional().nullable().or(z.literal('')),
+  rango_horario: z.string().max(255, "El rango horario debe tener 255 caracteres o menos").optional().nullable().or(z.literal('')),
+  tarifa: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? null : parseFloat(String(val))),
+    z.number({ invalid_type_error: "La tarifa debe ser un número." }).min(0, "La tarifa no puede ser negativa.").optional().nullable()
+  ),
+  telefono_reparto: z.string().max(20, "El teléfono de reparto debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
+});
+export type DeliveryClientInfoFormData = z.infer<typeof deliveryClientInfoSchema>;
