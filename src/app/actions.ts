@@ -4,29 +4,27 @@
 import type { Client, ClientFormData } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { clientSchema } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
 
 export async function getClients(): Promise<Client[]> {
   const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .order('name', { ascending: true });
+    .from('clientes') // Changed from 'clients'
+    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
+    .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
-  // Ensure created_at and updated_at are strings if they exist and map to domain model
+  // Map to domain model, address can be null
   return data.map(client => ({
     id: client.id,
-    name: client.name,
-    address: client.address,
+    name: client.nombre,
+    address: client.direccion, // direccion can be null
     telefono: client.telefono,
     email: client.email,
-    createdAt: client.created_at ? new Date(client.created_at).toISOString() : undefined,
-    updatedAt: client.updated_at ? new Date(client.updated_at).toISOString() : undefined,
   })) as Client[];
 }
 
@@ -40,25 +38,22 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
   try {
-    // We can still validate the address for immediate UI feedback, but won't store its specific result fields
     validatedAddressInfo = await validateAddress({ address });
   } catch (error) {
     console.error('AI Address Validation Error:', error);
-    // Non-fatal, proceed with client creation but inform about validation issue potentially
   }
 
   const clientDataToInsert = {
-    name,
-    address,
+    nombre: name, // Changed from name
+    direccion: address, // Changed from address
     telefono: telefono || null,
     email: email || null,
-    // Supabase will handle created_at and updated_at if table is configured with defaults
   };
 
   const { data: newClientRecord, error: insertError } = await supabase
-    .from('clients')
+    .from('clientes') // Changed from 'clients'
     .insert(clientDataToInsert)
-    .select()
+    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
     .single();
 
   if (insertError) {
@@ -71,12 +66,10 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     success: true, 
     client: {
       id: newClientRecord.id,
-      name: newClientRecord.name,
-      address: newClientRecord.address,
+      name: newClientRecord.nombre,
+      address: newClientRecord.direccion,
       telefono: newClientRecord.telefono,
       email: newClientRecord.email,
-      createdAt: newClientRecord.created_at ? new Date(newClientRecord.created_at).toISOString() : undefined,
-      updatedAt: newClientRecord.updated_at ? new Date(newClientRecord.updated_at).toISOString() : undefined,
     } as Client,
     addressValidation: validatedAddressInfo
   };
@@ -91,7 +84,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   const { name, address, telefono, email } = validationResult.data;
   
   const { data: clientToUpdate, error: findError } = await supabase
-    .from('clients')
+    .from('clientes') // Changed from 'clients'
     .select('id')
     .eq('id', id)
     .single();
@@ -109,18 +102,18 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   }
   
   const clientDataToUpdate = {
-    name,
-    address,
+    nombre: name, // Changed from name
+    direccion: address, // Changed from address
     telefono: telefono || null,
     email: email || null,
-    updated_at: new Date().toISOString(), 
+    // updated_at is not managed by client if not in table or no trigger
   };
 
   const { data: updatedClientRecord, error: updateError } = await supabase
-    .from('clients')
+    .from('clientes') // Changed from 'clients'
     .update(clientDataToUpdate)
     .eq('id', id)
-    .select()
+    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
     .single();
 
   if (updateError) {
@@ -133,12 +126,10 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     success: true, 
     client: {
       id: updatedClientRecord.id,
-      name: updatedClientRecord.name,
-      address: updatedClientRecord.address,
+      name: updatedClientRecord.nombre,
+      address: updatedClientRecord.direccion,
       telefono: updatedClientRecord.telefono,
       email: updatedClientRecord.email,
-      createdAt: updatedClientRecord.created_at ? new Date(updatedClientRecord.created_at).toISOString() : undefined,
-      updatedAt: updatedClientRecord.updated_at ? new Date(updatedClientRecord.updated_at).toISOString() : undefined,
     } as Client,
     addressValidation: validatedAddressInfo
   };
@@ -146,7 +137,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
 export async function deleteClientAction(id: string): Promise<{ success: boolean; message?: string }> {
   const { error: deleteError } = await supabase
-    .from('clients')
+    .from('clientes') // Changed from 'clients'
     .delete()
     .eq('id', id);
 

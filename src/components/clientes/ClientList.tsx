@@ -87,7 +87,7 @@ export default function ClientList({ clients, onEdit, onDeleteSuccess, isLoading
               {clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.address}</TableCell>
+                  <TableCell>{client.address || 'N/A'}</TableCell> {/* Handle null address */}
                   <TableCell>{client.telefono || 'N/A'}</TableCell>
                   <TableCell>{client.email || 'N/A'}</TableCell>
                   <TableCell className="text-right space-x-2">
