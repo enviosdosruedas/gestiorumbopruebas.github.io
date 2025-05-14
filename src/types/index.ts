@@ -2,7 +2,7 @@
 export interface Client {
   id: string; // UUID from Supabase
   nombre: string; 
-  direccion: string | null; // Ajustado para reflejar que la dirección puede ser null
+  direccion: string | null;
   telefono?: string | null;
   email?: string | null;
 }
@@ -20,23 +20,51 @@ export interface DeliveryClientInfo {
   cliente_id: string; // UUID, FK a clientes.id
   nombre_reparto: string;
   direccion_reparto: string | null;
-  rango_horario: string | null; // Este se mantendrá como string en el modelo de DB por ahora
+  rango_horario: string | null;
   tarifa: number | null;
   telefono_reparto: string | null;
   created_at?: string | null; 
   updated_at?: string | null; 
-  cliente_nombre?: string;
+  cliente_nombre?: string; // Nombre del cliente principal, para UI
 }
 
-// FormData para el formulario, ahora con campos separados para el horario
 export interface DeliveryClientInfoFormData {
   cliente_id: string;
   nombre_reparto: string;
   direccion_reparto?: string | null;
-  rango_horario_desde?: string | null; // Nuevo campo
-  rango_horario_hasta?: string | null; // Nuevo campo
+  rango_horario_desde?: string | null;
+  rango_horario_hasta?: string | null;
   tarifa?: number | null;
   telefono_reparto?: string | null;
+}
+
+export interface Reparto {
+  id: number; // serial, PK de repartos
+  fecha_reparto: string; // date
+  repartidor_id: string; // UUID, FK a repartidores.id
+  cliente_id: string; // UUID, FK a clientes.id
+  observaciones: string | null;
+  estado: string | null; // 'Asignado', 'En Curso', 'Completado'
+  created_at: string | null;
+  updated_at: string | null;
+  // Campos enriquecidos para la UI
+  repartidor_nombre?: string;
+  cliente_principal_nombre?: string;
+  clientes_reparto_asignados?: DeliveryClientInfo[]; // Lista de DeliveryClientInfo asociados a este reparto
+}
+
+export interface RepartoFormData {
+  fecha_reparto: string; // YYYY-MM-DD
+  repartidor_id: string;
+  cliente_id: string;
+  selected_clientes_reparto_ids: number[]; // IDs de clientes_reparto
+  observaciones?: string | null;
+  estado: string;
+}
+
+export interface RepartoClienteReparto {
+  reparto_id: number;
+  cliente_reparto_id: number;
 }
 
 
@@ -56,7 +84,6 @@ export interface Database {
           direccion: string | null;
           telefono: string | null;
           email: string | null;
-          // created_at and updated_at are not explicitly in the DDL for clientes
         };
         Insert: {
           id?: string;
@@ -79,7 +106,7 @@ export interface Database {
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto: string | null;
-          rango_horario: string | null; // Mantenido como string
+          rango_horario: string | null;
           tarifa: number | null;
           created_at: string | null;
           updated_at: string | null;
@@ -90,7 +117,7 @@ export interface Database {
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto?: string | null;
-          rango_horario?: string | null; // Se guardará el string combinado aquí
+          rango_horario?: string | null;
           tarifa?: number | null;
           created_at?: string | null; 
           updated_at?: string | null; 
@@ -101,7 +128,7 @@ export interface Database {
           cliente_id?: string;
           nombre_reparto?: string;
           direccion_reparto?: string | null;
-          rango_horario?: string | null; // Se guardará el string combinado aquí
+          rango_horario?: string | null;
           tarifa?: number | null;
           updated_at?: string | null; 
           telefono_reparto?: string | null;
@@ -147,12 +174,12 @@ export interface Database {
       repartos: {
         Row: {
           id: number;
-          fecha_reparto: string; 
-          repartidor_id: string;
-          cliente_id: string;
+          fecha_reparto: string; // DATE
+          repartidor_id: string; // UUID
+          cliente_id: string; // UUID
           observaciones: string | null;
-          created_at: string | null; 
-          updated_at: string | null; 
+          created_at: string | null; // TIMESTAMPTZ
+          updated_at: string | null; // TIMESTAMPTZ
           estado: string | null;
         };
         Insert: {
@@ -171,7 +198,6 @@ export interface Database {
           repartidor_id?: string;
           cliente_id?: string;
           observaciones?: string | null;
-          created_at?: string | null;
           updated_at?: string | null;
           estado?: string | null;
         };
@@ -211,8 +237,8 @@ export interface Database {
     };
     Functions: {
       update_updated_at_column?: { 
-        Args: {};
-        Returns: unknown;
+        Args: {}; // Supongo que no tiene argumentos o son manejados por el trigger
+        Returns: unknown; // O el tipo específico si lo conoces
       };
     };
   };

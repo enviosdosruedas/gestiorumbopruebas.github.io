@@ -34,15 +34,21 @@ export const deliveryClientInfoSchema = z.object({
   telefono_reparto: z.string().max(20, "El teléfono de reparto debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
 }).refine(data => {
   if (data.rango_horario_desde && data.rango_horario_hasta) {
-    // Simple time comparison (HH:MM format assumed)
     return data.rango_horario_desde <= data.rango_horario_hasta;
   }
-  return true; // Pass if one or both are empty
+  return true;
 }, {
   message: "La hora 'desde' no puede ser posterior a la hora 'hasta'.",
-  path: ["rango_horario_hasta"], // Attach error to 'hasta' field for better UX
+  path: ["rango_horario_hasta"],
 });
 
-// El tipo DeliveryClientInfoFormData se define en src/types/index.ts
-// export type DeliveryClientInfoFormData = z.infer<typeof deliveryClientInfoSchema>;
-// Se comenta para evitar duplicación ya que se importa de types/index.ts
+export const repartoEstados = ["Asignado", "En Curso", "Completado"] as const;
+export const repartoSchema = z.object({
+  fecha_reparto: z.string().min(1, "La fecha de reparto es requerida."), // Validar formato YYYY-MM-DD si es necesario con .regex()
+  repartidor_id: z.string().uuid("Debe seleccionar un repartidor."),
+  cliente_id: z.string().uuid("Debe seleccionar un cliente principal."),
+  selected_clientes_reparto_ids: z.array(z.number().int().positive()).min(1, "Debe seleccionar al menos un cliente de reparto para la ruta."),
+  observaciones: z.string().max(500, "Las observaciones no pueden exceder los 500 caracteres.").optional().nullable().or(z.literal('')),
+  estado: z.enum(repartoEstados, { errorMap: () => ({ message: "Estado de reparto inválido." })}),
+});
+// El tipo RepartoFormData se define en src/types/index.ts
