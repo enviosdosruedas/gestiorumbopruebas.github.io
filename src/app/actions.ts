@@ -1,11 +1,11 @@
 
 'use server';
 
-import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData, Zona, DetalleRepartoFormData, DetalleReparto, Database, MobileDashboardTask, MobileDriverInfo, DetalleRepartoStatus } from '@/types';
+import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData, Zona, DetalleRepartoFormData, DetalleReparto, Database, MobileDashboardTask, MobileDriverInfo, DetalleRepartoStatus, RepartoStatus } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema, ALL_REPARTO_STATUSES } from '@/lib/schema';
+import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema, ALL_REPARTO_STATUSES, ALL_DETALLE_REPARTO_STATUSES } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
@@ -20,7 +20,10 @@ export async function getClients(): Promise<Client[]> {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
-  return data as Client[];
+  return data.map(client => ({
+    ...client,
+    direccion: client.direccion ?? null // Ensure direccion is null if undefined from DB
+  })) as Client[];
 }
 
 export async function addClientAction(formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string; addressValidation?: ValidateAddressOutput }> {
@@ -40,9 +43,9 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     }
   }
 
-  const clientDataToInsert = {
+  const clientDataToInsert: Database['public']['Tables']['clientes']['Insert'] = {
     nombre: nombre,
-    direccion: direccion,
+    direccion: direccion || null, // Ensure null if empty string or undefined
     telefono: telefono || null,
     email: email || null,
   };
@@ -94,9 +97,9 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     }
   }
   
-  const clientDataToUpdate = {
+  const clientDataToUpdate: Database['public']['Tables']['clientes']['Update'] = {
     nombre: nombre,
-    direccion: direccion,
+    direccion: direccion || null,
     telefono: telefono || null,
     email: email || null,
     updated_at: new Date().toISOString(),
@@ -160,7 +163,7 @@ export async function addRepartidorAction(formData: RepartidorFormData): Promise
 
   const { nombre, identificacion, telefono, vehiculo } = validationResult.data;
 
-  const repartidorDataToInsert = {
+  const repartidorDataToInsert: Database['public']['Tables']['repartidores']['Insert'] = {
     nombre,
     identificacion: identificacion || null,
     telefono: telefono || null,
@@ -207,7 +210,7 @@ export async function updateRepartidorAction(id: string, formData: RepartidorFor
     return { success: false, message: 'Repartidor no encontrado.' };
   }
   
-  const repartidorDataToUpdate = {
+  const repartidorDataToUpdate: Database['public']['Tables']['repartidores']['Update'] = {
     nombre,
     identificacion: identificacion || null,
     telefono: telefono || null,
@@ -256,7 +259,7 @@ export async function deleteRepartidorAction(id: string): Promise<{ success: boo
 export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
   const { data, error } = await supabase
     .from('clientes_reparto')
-    .select(\`
+    .select(`
       id,
       cliente_id,
       nombre_reparto,
@@ -267,7 +270,7 @@ export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
       created_at,
       updated_at,
       clientes ( nombre ) 
-    \`)
+    `)
     .order('nombre_reparto', { ascending: true });
 
   if (error) {
@@ -308,11 +311,11 @@ export async function getDeliveryClientInfosByClientId(clienteId: string): Promi
 
 function formatRangoHorario(desde?: string | null, hasta?: string | null): string | null {
   if (desde && hasta) {
-    return \`\${desde} - \${hasta}\`;
+    return `${desde} - ${hasta}`;
   } else if (desde) {
-    return \`Desde \${desde}\`;
+    return `Desde ${desde}`;
   } else if (hasta) {
-    return \`Hasta \${hasta}\`;
+    return `Hasta ${hasta}`;
   }
   return null;
 }
@@ -327,7 +330,7 @@ export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFo
 
   const rango_horario_final = formatRangoHorario(rango_horario_desde, rango_horario_hasta);
 
-  const dataToInsert = {
+  const dataToInsert: Database['public']['Tables']['clientes_reparto']['Insert'] = {
     cliente_id,
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
@@ -378,7 +381,7 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
   
   const rango_horario_final = formatRangoHorario(rango_horario_desde, rango_horario_hasta);
 
-  const dataToUpdate = {
+  const dataToUpdate: Database['public']['Tables']['clientes_reparto']['Update'] = {
     cliente_id,
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
@@ -444,7 +447,7 @@ export async function getZonas(): Promise<Zona[]> {
 export async function getRepartos(): Promise<Reparto[]> {
   const { data, error } = await supabase
     .from('repartos')
-    .select(\`
+    .select(`
       id,
       fecha_reparto,
       repartidor_id,
@@ -459,7 +462,7 @@ export async function getRepartos(): Promise<Reparto[]> {
       created_at,
       updated_at,
       detalles_reparto ( count )
-    \`)
+    `)
     .order('fecha_reparto', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -606,7 +609,7 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
   }
   
   revalidatePath('/Repartos');
-  revalidatePath(\`/Repartos/\${repartoId}/report\`); 
+  revalidatePath(`/Repartos/${repartoId}/report`); 
 
   const { data: updatedRepartoData } = await supabase
     .from('repartos')
@@ -637,7 +640,7 @@ export async function deleteRepartoAction(repartoId: number): Promise<{ success:
 export async function getRepartoByIdForReport(repartoId: number): Promise<{ reparto: Reparto | null; error?: string }> {
   const { data: repartoData, error: repartoError } = await supabase
     .from('repartos')
-    .select(\`
+    .select(`
       id,
       fecha_reparto,
       observaciones,
@@ -663,7 +666,7 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
           telefono_reparto 
         )
       )
-    \`)
+    `)
     .eq('id', repartoId)
     .order('orden_visita', { referencedTable: 'detalles_reparto', ascending: true })
     .single();
