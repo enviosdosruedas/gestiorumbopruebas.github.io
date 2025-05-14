@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const clientSchema = z.object({
   name: z.string().min(1, "El nombre es requerido").max(100, "El nombre debe tener 100 caracteres o menos"),
-  address: z.string().min(1, "La dirección es requerida").max(200, "La dirección debe tener 200 caracteres o menos"),
+  direccion: z.string().min(1, "La dirección es requerida").max(200, "La dirección debe tener 200 caracteres o menos"),
   telefono: z.string().max(20, "El teléfono debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
   email: z.string().email({ message: "Email inválido" }).max(100, "El email debe tener 100 caracteres o menos").optional().nullable().or(z.literal('')),
 });
@@ -41,10 +41,11 @@ export const deliveryClientInfoSchema = z.object({
   message: "La hora 'desde' no puede ser posterior a la hora 'hasta'.",
   path: ["rango_horario_hasta"],
 });
+export type DeliveryClientInfoFormData = z.infer<typeof deliveryClientInfoSchema>;
 
 export const repartoEstados = ["Asignado", "En Curso", "Completado"] as const;
 export const repartoSchema = z.object({
-  fecha_reparto: z.string().min(1, "La fecha de reparto es requerida."), // Validar formato YYYY-MM-DD si es necesario con .regex()
+  fecha_reparto: z.string().min(1, "La fecha de reparto es requerida."), 
   repartidor_id: z.string().uuid("Debe seleccionar un repartidor."),
   cliente_id: z.string().uuid("Debe seleccionar un cliente principal."),
   selected_clientes_reparto_ids: z.array(z.number().int().positive()).min(1, "Debe seleccionar al menos un cliente de reparto para la ruta."),

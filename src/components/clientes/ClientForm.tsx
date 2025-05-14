@@ -30,8 +30,8 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      name: initialClientData?.name || '',
-      address: initialClientData?.address || '',
+      name: initialClientData?.nombre || '',
+      direccion: initialClientData?.direccion || '',
       telefono: initialClientData?.telefono || '',
       email: initialClientData?.email || '',
     },
@@ -40,20 +40,20 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
   useEffect(() => {
     if (initialClientData) {
       form.reset({
-        name: initialClientData.name,
-        address: initialClientData.address,
+        name: initialClientData.nombre,
+        direccion: initialClientData.direccion || '',
         telefono: initialClientData.telefono || '',
         email: initialClientData.email || '',
       });
     } else {
-      form.reset({ name: '', address: '', telefono: '', email: '' });
+      form.reset({ name: '', direccion: '', telefono: '', email: '' });
     }
     setAddressValidationUIMessage(null); // Clear UI message on form reset
   }, [initialClientData, form]);
   
   const handleAddressValidated = (isValid: boolean, validatedAddress?: string) => {
     if (isValid) {
-        setAddressValidationUIMessage(`Dirección parece válida: ${validatedAddress || form.getValues("address")}`);
+        setAddressValidationUIMessage(`Dirección parece válida: ${validatedAddress || form.getValues("direccion")}`);
     } else {
         setAddressValidationUIMessage("Dirección podría no ser válida o no estar en Mar del Plata.");
     }
@@ -71,11 +71,11 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
       if (result.success && result.client) {
         toast({
           title: initialClientData ? 'Cliente Actualizado' : 'Cliente Agregado',
-          description: `Cliente ${result.client.name} ha sido ${initialClientData ? 'actualizado' : 'agregado'} exitosamente.`,
+          description: `Cliente ${result.client.nombre} ha sido ${initialClientData ? 'actualizado' : 'agregado'} exitosamente.`,
           variant: 'default',
         });
         onSuccess();
-        form.reset({ name: '', address: '', telefono: '', email: '' }); 
+        form.reset({ name: '', direccion: '', telefono: '', email: '' }); 
       } else {
         if (result.errors) {
           result.errors.forEach(err => {
@@ -90,7 +90,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
         // Show address validation feedback from AI if available and not successful
         if (result.addressValidation) {
             if (result.addressValidation.isValid) {
-                 setAddressValidationUIMessage(`Dirección validada por IA: ${result.addressValidation.validatedAddress || data.address}`);
+                 setAddressValidationUIMessage(`Dirección validada por IA: ${result.addressValidation.validatedAddress || data.direccion}`);
             } else {
                  setAddressValidationUIMessage(`IA sugiere: ${result.addressValidation.suggestions?.join(', ') || 'Dirección no válida en Mar del Plata.'}`);
             }
@@ -116,7 +116,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
           {initialClientData ? 'Editar Cliente' : 'Agregar Nuevo Cliente'}
         </CardTitle>
         <CardDescription>
-          {initialClientData ? `Editando cliente: ${initialClientData.name}` : 'Complete los detalles para agregar un nuevo cliente.'}
+          {initialClientData ? `Editando cliente: ${initialClientData.nombre}` : 'Complete los detalles para agregar un nuevo cliente.'}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -137,7 +137,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
             />
             <FormField
               control={form.control}
-              name="address"
+              name="direccion"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Dirección</FormLabel>

@@ -86,8 +86,8 @@ export default function ClientList({ clients, onEdit, onDeleteSuccess, isLoading
             <TableBody>
               {clients.map((client) => (
                 <TableRow key={client.id}>
-                  <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.address || 'N/A'}</TableCell>
+                  <TableCell className="font-medium">{client.nombre}</TableCell>
+                  <TableCell>{client.direccion || 'N/A'}</TableCell>
                   <TableCell>{client.telefono || 'N/A'}</TableCell>
                   <TableCell>{client.email || 'N/A'}</TableCell>
                   <TableCell className="text-right space-x-2">
@@ -105,7 +105,7 @@ export default function ClientList({ clients, onEdit, onDeleteSuccess, isLoading
                         <AlertDialogHeader>
                           <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Esto eliminará permanentemente el cliente "{client.name}" y todos los datos asociados.
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente el cliente "{client.nombre}" y todos los datos asociados.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
