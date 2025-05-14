@@ -1,21 +1,22 @@
 
 export interface Client {
-  id: string; // UUID from Supabase
+  id: string; 
   nombre: string; 
   direccion: string | null;
   telefono?: string | null;
   email?: string | null;
-  // created_at y updated_at no se añaden aquí porque la UI actual no los usa,
-  // pero estarán en el tipo Database para la lógica de backend si es necesario.
+  created_at?: string | null; 
+  updated_at?: string | null; 
 }
 
 export interface DeliveryPerson {
-  id: string; // UUID from Supabase
+  id: string; 
   nombre: string;
   identificacion?: string | null;
   telefono?: string | null;
   vehiculo?: string | null;
-  // status?: 'activo' | 'inactivo'; // Considerar para el futuro
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface DeliveryClientInfo {
@@ -29,7 +30,6 @@ export interface DeliveryClientInfo {
   created_at?: string | null; 
   updated_at?: string | null; 
   cliente_nombre?: string; 
-  // Campos para reporte
   horario_inicio?: string | null; 
   horario_fin?: string | null; 
   restricciones?: string | null; 
@@ -52,13 +52,17 @@ export interface Zona {
   updated_at?: string | null;
 }
 
+export const ALL_DETALLE_REPARTO_STATUSES = ["pendiente", "en_camino", "entregado", "no_entregado", "cancelado"] as const;
+export type DetalleRepartoStatus = typeof ALL_DETALLE_REPARTO_STATUSES[number];
+
 export interface DetalleReparto {
-  id?: number; 
+  id: number; 
   reparto_id: number;
   cliente_reparto_id: number; 
   valor_entrega?: number | null;
   detalle_entrega?: string | null;
   orden_visita: number;
+  estado_entrega: DetalleRepartoStatus; // Added field for individual item status
   created_at?: string | null;
   updated_at?: string | null;
   // Campos enriquecidos
@@ -66,16 +70,18 @@ export interface DetalleReparto {
   cliente_reparto_direccion?: string | null;
   cliente_reparto_horario_preferido?: string | null;
   cliente_reparto_restricciones?: string | null;
+  cliente_reparto_telefono?: string | null; // Added for task card
 }
 
 export interface DetalleRepartoFormData {
   cliente_reparto_id: string; 
   valor_entrega?: number | null;
   detalle_entrega?: string | null;
+  estado_entrega?: DetalleRepartoStatus; // Added
 }
 
-export const ALL_DELIVERY_STATUSES = ["pendiente", "en curso", "entregado", "cancelado", "reprogramado"] as const;
-export type DeliveryStatus = typeof ALL_DELIVERY_STATUSES[number];
+export const ALL_REPARTO_STATUSES = ["pendiente", "en curso", "entregado", "cancelado", "reprogramado"] as const;
+export type RepartoStatus = typeof ALL_REPARTO_STATUSES[number];
 
 export interface Reparto {
   id: number; 
@@ -85,7 +91,7 @@ export interface Reparto {
   zona_id: number | null; 
   tanda: number | null; 
   observaciones: string | null;
-  estado: DeliveryStatus; 
+  estado: RepartoStatus; 
   created_at: string | null;
   updated_at: string | null;
   // Campos enriquecidos
@@ -102,21 +108,28 @@ export interface RepartoFormData {
   cliente_id: string | null; 
   zona_id: string; 
   tanda: number;
-  estado: DeliveryStatus;
+  estado: RepartoStatus;
   detalles_reparto: DetalleRepartoFormData[];
   observaciones?: string | null;
 }
-
-// Ya no se usa esta tabla de unión, se usa detalles_reparto
-// export interface RepartoClienteReparto {
-//   reparto_id: number;
-//   cliente_reparto_id: number;
-// }
 
 export interface AddressValidationSuggestion {
   description: string;
   place_id: string;
 }
+
+// For Mobile Dashboard
+export interface MobileDashboardTask extends DetalleReparto {
+  // Potentially add more fields specific to the mobile dashboard view if needed
+  reparto_fecha?: string;
+  reparto_observaciones?: string | null;
+}
+
+export interface MobileDriverInfo {
+  id: string;
+  nombre: string;
+}
+
 
 export type Database = {
   public: {
@@ -128,8 +141,8 @@ export type Database = {
           direccion: string | null;
           telefono: string | null;
           email: string | null;
-          created_at: string | null; // Añadido
-          updated_at: string | null; // Añadido
+          created_at: string | null; 
+          updated_at: string | null; 
         };
         Insert: {
           id?: string;
@@ -137,8 +150,8 @@ export type Database = {
           direccion?: string | null;
           telefono?: string | null;
           email?: string | null;
-          created_at?: string | null; // Añadido
-          updated_at?: string | null; // Añadido
+          created_at?: string | null; 
+          updated_at?: string | null; 
         };
         Update: {
           id?: string;
@@ -146,7 +159,7 @@ export type Database = {
           direccion?: string | null;
           telefono?: string | null;
           email?: string | null;
-          updated_at?: string | null; // Añadido
+          updated_at?: string | null; 
         };
       };
       clientes_reparto: {
@@ -190,8 +203,8 @@ export type Database = {
           identificacion: string | null;
           telefono: string | null;
           vehiculo: string | null;
-          created_at: string | null; // Añadido
-          updated_at: string | null; // Añadido
+          created_at: string | null; 
+          updated_at: string | null; 
         };
         Insert: {
           id?: string;
@@ -199,8 +212,8 @@ export type Database = {
           identificacion?: string | null;
           telefono?: string | null;
           vehiculo?: string | null;
-          created_at?: string | null; // Añadido
-          updated_at?: string | null; // Añadido
+          created_at?: string | null; 
+          updated_at?: string | null; 
         };
         Update: {
           id?: string;
@@ -208,26 +221,26 @@ export type Database = {
           identificacion?: string | null;
           telefono?: string | null;
           vehiculo?: string | null;
-          updated_at?: string | null; // Añadido
+          updated_at?: string | null; 
         };
       };
       zonas: { 
         Row: {
           id: number;
           nombre: string;
-          created_at: string | null; // Añadido
-          updated_at: string | null; // Añadido
+          created_at: string | null; 
+          updated_at: string | null; 
         };
         Insert: {
           id?: number;
           nombre: string;
-          created_at?: string | null; // Añadido
-          updated_at?: string | null; // Añadido
+          created_at?: string | null; 
+          updated_at?: string | null; 
         };
         Update: {
           id?: number;
           nombre?: string;
-          updated_at?: string | null; // Añadido
+          updated_at?: string | null; 
         };
       };
       repartos: {
@@ -235,36 +248,36 @@ export type Database = {
           id: number;
           fecha_reparto: string; 
           repartidor_id: string; 
-          cliente_id: string | null; // Modificado a nullable
-          zona_id: number | null; // Añadido
-          tanda: number | null; // Añadido
+          cliente_id: string | null; 
+          zona_id: number | null; 
+          tanda: number | null; 
           observaciones: string | null;
           created_at: string | null; 
           updated_at: string | null; 
-          estado: string; 
+          estado: RepartoStatus; 
         };
         Insert: {
           id?: number;
           fecha_reparto: string;
           repartidor_id: string;
-          cliente_id?: string | null; // Modificado a nullable
-          zona_id?: number | null; // Añadido
-          tanda?: number | null; // Añadido
+          cliente_id?: string | null; 
+          zona_id?: number | null; 
+          tanda?: number | null; 
           observaciones?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
-          estado: string;
+          estado: RepartoStatus;
         };
         Update: {
           id?: number;
           fecha_reparto?: string;
           repartidor_id?: string;
-          cliente_id?: string | null; // Modificado a nullable
-          zona_id?: number | null; // Añadido
-          tanda?: number | null; // Añadido
+          cliente_id?: string | null; 
+          zona_id?: number | null; 
+          tanda?: number | null; 
           observaciones?: string | null;
           updated_at?: string | null;
-          estado?: string;
+          estado?: RepartoStatus;
         };
       };
       detalles_reparto: { 
@@ -275,8 +288,9 @@ export type Database = {
           valor_entrega: number | null;
           detalle_entrega: string | null;
           orden_visita: number;
-          created_at: string | null; // Añadido
-          updated_at: string | null; // Añadido
+          estado_entrega: DetalleRepartoStatus; // Added
+          created_at: string | null; 
+          updated_at: string | null; 
         };
         Insert: {
           id?: number;
@@ -285,8 +299,9 @@ export type Database = {
           valor_entrega?: number | null;
           detalle_entrega?: string | null;
           orden_visita: number;
-          created_at?: string | null; // Añadido
-          updated_at?: string | null; // Añadido
+          estado_entrega: DetalleRepartoStatus; // Added
+          created_at?: string | null; 
+          updated_at?: string | null; 
         };
         Update: {
           id?: number;
@@ -295,12 +310,13 @@ export type Database = {
           valor_entrega?: number | null;
           detalle_entrega?: string | null;
           orden_visita?: number;
-          updated_at?: string | null; // Añadido
+          estado_entrega?: DetalleRepartoStatus; // Added
+          updated_at?: string | null; 
         };
       };
       usuarios: {
         Row: {
-          codigo: number; // Cambiado de serial a number para el tipo Row
+          codigo: number; 
           nombre: string;
           pass: string;
           rol: string;
@@ -331,7 +347,6 @@ export type Database = {
       // Define views here if any
     };
     Functions: {
-      // Renombrado para consistencia con el script SQL generado
       update_updated_at_column?: { 
         Args: {}; 
         Returns: unknown; 
@@ -339,5 +354,4 @@ export type Database = {
     };
   };
 }
-    
     

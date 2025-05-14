@@ -1,31 +1,26 @@
 
 'use server';
 
-import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData, Zona, DetalleRepartoFormData, DetalleReparto } from '@/types';
+import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData, Zona, DetalleRepartoFormData, DetalleReparto, Database, MobileDashboardTask, MobileDriverInfo, DetalleRepartoStatus } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema, ALL_DELIVERY_STATUSES } from '@/lib/schema';
+import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema, ALL_REPARTO_STATUSES } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 // Client Actions
 export async function getClients(): Promise<Client[]> {
   const { data, error } = await supabase
     .from('clientes')
-    .select('id, nombre, direccion, telefono, email')
+    .select('id, nombre, direccion, telefono, email, created_at, updated_at')
     .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
-  return data.map(client => ({
-    id: client.id,
-    nombre: client.nombre,
-    direccion: client.direccion, // This is correct
-    telefono: client.telefono,
-    email: client.email,
-  })) as Client[];
+  return data as Client[];
 }
 
 export async function addClientAction(formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string; addressValidation?: ValidateAddressOutput }> {
@@ -55,7 +50,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   const { data: newClientRecord, error: insertError } = await supabase
     .from('clientes')
     .insert(clientDataToInsert)
-    .select('id, nombre, direccion, telefono, email')
+    .select('id, nombre, direccion, telefono, email, created_at, updated_at')
     .single();
 
   if (insertError) {
@@ -66,13 +61,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   revalidatePath('/Clientes');
   return { 
     success: true, 
-    client: {
-      id: newClientRecord.id,
-      nombre: newClientRecord.nombre,
-      direccion: newClientRecord.direccion,
-      telefono: newClientRecord.telefono,
-      email: newClientRecord.email,
-    } as Client,
+    client: newClientRecord as Client,
     addressValidation: validatedAddressInfo
   };
 }
@@ -110,13 +99,14 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     direccion: direccion,
     telefono: telefono || null,
     email: email || null,
+    updated_at: new Date().toISOString(),
   };
 
   const { data: updatedClientRecord, error: updateError } = await supabase
     .from('clientes')
     .update(clientDataToUpdate)
     .eq('id', id)
-    .select('id, nombre, direccion, telefono, email')
+    .select('id, nombre, direccion, telefono, email, created_at, updated_at')
     .single();
 
   if (updateError) {
@@ -127,13 +117,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   revalidatePath('/Clientes');
   return { 
     success: true, 
-    client: {
-      id: updatedClientRecord.id,
-      nombre: updatedClientRecord.nombre,
-      direccion: updatedClientRecord.direccion,
-      telefono: updatedClientRecord.telefono,
-      email: updatedClientRecord.email,
-    } as Client,
+    client: updatedClientRecord as Client,
     addressValidation: validatedAddressInfo
   };
 }
@@ -158,8 +142,7 @@ export async function deleteClientAction(id: string): Promise<{ success: boolean
 export async function getRepartidores(): Promise<DeliveryPerson[]> {
   const { data, error } = await supabase
     .from('repartidores')
-    .select('id, nombre, identificacion, telefono, vehiculo')
-    // .eq('status', 'activo') // Uncomment if you add a status column
+    .select('id, nombre, identificacion, telefono, vehiculo, created_at, updated_at')
     .order('nombre', { ascending: true });
 
   if (error) {
@@ -187,7 +170,7 @@ export async function addRepartidorAction(formData: RepartidorFormData): Promise
   const { data: newRecord, error: insertError } = await supabase
     .from('repartidores')
     .insert(repartidorDataToInsert)
-    .select('id, nombre, identificacion, telefono, vehiculo')
+    .select('id, nombre, identificacion, telefono, vehiculo, created_at, updated_at')
     .single();
 
   if (insertError) {
@@ -229,13 +212,14 @@ export async function updateRepartidorAction(id: string, formData: RepartidorFor
     identificacion: identificacion || null,
     telefono: telefono || null,
     vehiculo: vehiculo || null,
+    updated_at: new Date().toISOString(),
   };
 
   const { data: updatedRecord, error: updateError } = await supabase
     .from('repartidores')
     .update(repartidorDataToUpdate)
     .eq('id', id)
-    .select('id, nombre, identificacion, telefono, vehiculo')
+    .select('id, nombre, identificacion, telefono, vehiculo, created_at, updated_at')
     .single();
 
   if (updateError) {
@@ -272,7 +256,7 @@ export async function deleteRepartidorAction(id: string): Promise<{ success: boo
 export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
   const { data, error } = await supabase
     .from('clientes_reparto')
-    .select(`
+    .select(\`
       id,
       cliente_id,
       nombre_reparto,
@@ -283,7 +267,7 @@ export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
       created_at,
       updated_at,
       clientes ( nombre ) 
-    `)
+    \`)
     .order('nombre_reparto', { ascending: true });
 
   if (error) {
@@ -314,16 +298,21 @@ export async function getDeliveryClientInfosByClientId(clienteId: string): Promi
   return data.map(item => ({
     ...item,
     tarifa: item.tarifa === null || item.tarifa === undefined ? null : Number(item.tarifa),
+    // Include other fields needed by MobileDashboardTask if they exist on clientes_reparto
+    cliente_reparto_nombre: item.nombre_reparto,
+    cliente_reparto_direccion: item.direccion_reparto,
+    cliente_reparto_horario_preferido: item.rango_horario,
+    cliente_reparto_telefono: item.telefono_reparto,
   })) as DeliveryClientInfo[];
 }
 
 function formatRangoHorario(desde?: string | null, hasta?: string | null): string | null {
   if (desde && hasta) {
-    return `${desde} - ${hasta}`;
+    return \`\${desde} - \${hasta}\`;
   } else if (desde) {
-    return `Desde ${desde}`;
+    return \`Desde \${desde}\`;
   } else if (hasta) {
-    return `Hasta ${hasta}`;
+    return \`Hasta \${hasta}\`;
   }
   return null;
 }
@@ -445,8 +434,6 @@ export async function getZonas(): Promise<Zona[]> {
 
   if (error) {
     console.error('Supabase getZonas error:', error.message || JSON.stringify(error));
-    // Consider not throwing an error if zonas are optional or can be empty
-    // For now, let's return empty array on error or if table doesn't exist
     return []; 
   }
   return data as Zona[];
@@ -457,7 +444,7 @@ export async function getZonas(): Promise<Zona[]> {
 export async function getRepartos(): Promise<Reparto[]> {
   const { data, error } = await supabase
     .from('repartos')
-    .select(`
+    .select(\`
       id,
       fecha_reparto,
       repartidor_id,
@@ -472,7 +459,7 @@ export async function getRepartos(): Promise<Reparto[]> {
       created_at,
       updated_at,
       detalles_reparto ( count )
-    `)
+    \`)
     .order('fecha_reparto', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -482,27 +469,22 @@ export async function getRepartos(): Promise<Reparto[]> {
   }
   
   return data.map(reparto => {
-    // @ts-ignore Supabase types for count might be tricky
-    const itemCount = reparto.detalles_reparto && Array.isArray(reparto.detalles_reparto) && reparto.detalles_reparto.length > 0 ? reparto.detalles_reparto[0].count : 0;
+    const itemCount = (reparto.detalles_reparto as any)?.[0]?.count || 0;
     return {
       id: reparto.id,
       fecha_reparto: reparto.fecha_reparto,
       repartidor_id: reparto.repartidor_id,
-      // @ts-ignore
-      repartidor_nombre: reparto.repartidores?.nombre || 'N/A',
+      repartidor_nombre: (reparto.repartidores as any)?.nombre || 'N/A',
       cliente_id: reparto.cliente_id,
-      // @ts-ignore
-      cliente_principal_nombre: reparto.clientes?.nombre || null,
+      cliente_principal_nombre: (reparto.clientes as any)?.nombre || null,
       zona_id: reparto.zona_id,
-      // @ts-ignore
-      zona_nombre: reparto.zonas?.nombre || 'N/A',
+      zona_nombre: (reparto.zonas as any)?.nombre || 'N/A',
       tanda: reparto.tanda,
       observaciones: reparto.observaciones,
-      estado: reparto.estado as DeliveryStatus,
+      estado: reparto.estado as RepartoStatus,
       created_at: reparto.created_at,
       updated_at: reparto.updated_at,
       item_count: itemCount,
-      // detalles_reparto are not fully fetched here for list view, only count
     }
   }) as Reparto[];
 }
@@ -515,7 +497,6 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
   const { fecha_reparto, repartidor_id, cliente_id, zona_id, tanda, estado, detalles_reparto, observaciones } = validationResult.data;
 
-  // Convert cliente_id from "___NO_CLIENT_PRINCIPAL___" to null if necessary
   const finalClienteId = cliente_id === "___NO_CLIENT_PRINCIPAL___" ? null : cliente_id;
   
   const { data: newReparto, error: insertRepartoError } = await supabase
@@ -524,12 +505,12 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
       fecha_reparto,
       repartidor_id,
       cliente_id: finalClienteId,
-      zona_id: parseInt(zona_id, 10), // Ensure zona_id is number
+      zona_id: parseInt(zona_id, 10), 
       tanda,
       estado,
       observaciones: observaciones || null,
     })
-    .select('id, cliente_id, clientes (nombre)') // fetch cliente_nombre for toast
+    .select('id, cliente_id, clientes (nombre)') 
     .single();
 
   if (insertRepartoError || !newReparto) {
@@ -546,6 +527,7 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
       valor_entrega: detalle.valor_entrega,
       detalle_entrega: detalle.detalle_entrega,
       orden_visita: index,
+      estado_entrega: detalle.estado_entrega || 'pendiente', // Default if not provided
     }));
 
     const { error: insertDetallesError } = await supabase
@@ -554,16 +536,13 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
     if (insertDetallesError) {
       console.error('Supabase addDetallesReparto error:', insertDetallesError.message);
-      // Consider rolling back the reparto insert or handling partial success
-      // For now, delete the reparto if details fail
       await supabase.from('repartos').delete().eq('id', repartoId);
       return { success: false, message: 'Error al asociar ítems de entrega al reparto. Se revirtió la creación del reparto.' };
     }
   }
 
   revalidatePath('/Repartos');
-  // @ts-ignore
-  const clienteNombreParaToast = newReparto.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
+  const clienteNombreParaToast = (newReparto.clientes as any)?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
   return { success: true, reparto: { ...newReparto, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
 }
 
@@ -596,7 +575,6 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
     return { success: false, message: 'Error al actualizar el reparto.' };
   }
 
-  // Update detalles_reparto: delete existing and insert new ones
   const { error: deleteDetallesError } = await supabase
     .from('detalles_reparto')
     .delete()
@@ -614,6 +592,7 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
       valor_entrega: detalle.valor_entrega,
       detalle_entrega: detalle.detalle_entrega,
       orden_visita: index,
+      estado_entrega: detalle.estado_entrega || 'pendiente',
     }));
 
     const { error: insertDetallesError } = await supabase
@@ -627,23 +606,20 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
   }
   
   revalidatePath('/Repartos');
-  revalidatePath(`/Repartos/${repartoId}/report`); // Also revalidate report page
+  revalidatePath(\`/Repartos/\${repartoId}/report\`); 
 
-  // Fetch the updated reparto name for the toast
   const { data: updatedRepartoData } = await supabase
     .from('repartos')
     .select('id, cliente_id, clientes (nombre)')
     .eq('id', repartoId)
     .single();
   
-  // @ts-ignore
-  const clienteNombreParaToast = updatedRepartoData?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
+  const clienteNombreParaToast = (updatedRepartoData as any)?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
 
   return { success: true, reparto: { id: repartoId, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
 }
 
 export async function deleteRepartoAction(repartoId: number): Promise<{ success: boolean; message?: string }> {
-  // RLS policies with ON DELETE CASCADE should handle detalles_reparto
   const { error } = await supabase
     .from('repartos')
     .delete()
@@ -661,7 +637,7 @@ export async function deleteRepartoAction(repartoId: number): Promise<{ success:
 export async function getRepartoByIdForReport(repartoId: number): Promise<{ reparto: Reparto | null; error?: string }> {
   const { data: repartoData, error: repartoError } = await supabase
     .from('repartos')
-    .select(`
+    .select(\`
       id,
       fecha_reparto,
       observaciones,
@@ -678,16 +654,16 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
         orden_visita,
         valor_entrega,
         detalle_entrega,
+        estado_entrega,
         cliente_reparto_id,
         clientes_reparto (
           nombre_reparto,
           direccion_reparto,
           rango_horario, 
           telefono_reparto 
-          
         )
       )
-    `)
+    \`)
     .eq('id', repartoId)
     .order('orden_visita', { referencedTable: 'detalles_reparto', ascending: true })
     .single();
@@ -705,17 +681,14 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
     id: repartoData.id,
     fecha_reparto: repartoData.fecha_reparto,
     repartidor_id: repartoData.repartidor_id,
-    // @ts-ignore
-    repartidor_nombre: repartoData.repartidores?.nombre,
+    repartidor_nombre: (repartoData.repartidores as any)?.nombre,
     cliente_id: repartoData.cliente_id,
-    // @ts-ignore
-    cliente_principal_nombre: repartoData.clientes?.nombre,
+    cliente_principal_nombre: (repartoData.clientes as any)?.nombre,
     zona_id: repartoData.zona_id,
-    // @ts-ignore
-    zona_nombre: repartoData.zonas?.nombre,
+    zona_nombre: (repartoData.zonas as any)?.nombre,
     tanda: repartoData.tanda,
     observaciones: repartoData.observaciones,
-    estado: repartoData.estado as DeliveryStatus,
+    estado: repartoData.estado as RepartoStatus,
     detalles_reparto: (repartoData.detalles_reparto as any[])?.map(dr => ({
       id: dr.id,
       reparto_id: repartoData.id,
@@ -723,20 +696,117 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
       valor_entrega: dr.valor_entrega,
       detalle_entrega: dr.detalle_entrega,
       orden_visita: dr.orden_visita,
-      // @ts-ignore
-      cliente_reparto_nombre: dr.clientes_reparto?.nombre_reparto,
-      // @ts-ignore
-      cliente_reparto_direccion: dr.clientes_reparto?.direccion_reparto,
-      // @ts-ignore
-      cliente_reparto_horario_preferido: dr.clientes_reparto?.rango_horario, // Asumiendo rango_horario es el preferido
-      // @ts-ignore
-      cliente_reparto_restricciones: dr.clientes_reparto?.restricciones, // Asumiendo que tienes este campo
+      estado_entrega: dr.estado_entrega as DetalleRepartoStatus,
+      cliente_reparto_nombre: (dr.clientes_reparto as any)?.nombre_reparto,
+      cliente_reparto_direccion: (dr.clientes_reparto as any)?.direccion_reparto,
+      cliente_reparto_horario_preferido: (dr.clientes_reparto as any)?.rango_horario, 
+      cliente_reparto_telefono: (dr.clientes_reparto as any)?.telefono_reparto,
     })),
-    created_at: null, // No se pide en el select del reporte
-    updated_at: null, // No se pide en el select del reporte
+    created_at: null, 
+    updated_at: null, 
   };
 
   return { reparto };
 }
 
+// Mobile Dashboard Actions
+export async function getDriverInfo(driverId: string): Promise<MobileDriverInfo | null> {
+  // In a real app, fetch from your 'usuarios' or 'repartidores' table
+  // For now, returning mock data or fetching from repartidores
+  const { data, error } = await supabase
+    .from('repartidores')
+    .select('id, nombre')
+    .eq('id', driverId)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching driver info for dashboard:', error?.message);
+    return null; // Or a default driver
+  }
+  return data;
+}
+
+export async function getDriverDashboardTasks(driverId: string): Promise<{
+  inProgress: MobileDashboardTask[];
+  assigned: MobileDashboardTask[];
+  completed: MobileDashboardTask[];
+}> {
+  const today = new Date();
+  const startDate = format(startOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+  const endDate = format(endOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+
+  const { data: repartosHoy, error: repartosError } = await supabase
+    .from('repartos')
+    .select('id, fecha_reparto, observaciones, detalles_reparto(*, clientes_reparto(*))')
+    .eq('repartidor_id', driverId)
+    .gte('fecha_reparto', format(startOfDay(today), 'yyyy-MM-dd'))
+    .lte('fecha_reparto', format(endOfDay(today), 'yyyy-MM-dd'));
+
+
+  if (repartosError) {
+    console.error("Error fetching repartos for driver's dashboard:", repartosError.message);
+    return { inProgress: [], assigned: [], completed: [] };
+  }
+
+  const allTasks: MobileDashboardTask[] = [];
+  repartosHoy.forEach(reparto => {
+    (reparto.detalles_reparto as any[])?.forEach(detalle => {
+      allTasks.push({
+        ...detalle,
+        reparto_fecha: reparto.fecha_reparto,
+        reparto_observaciones: reparto.observaciones,
+        // Enrich with clientes_reparto data
+        cliente_reparto_nombre: (detalle.clientes_reparto as any)?.nombre_reparto,
+        cliente_reparto_direccion: (detalle.clientes_reparto as any)?.direccion_reparto,
+        cliente_reparto_horario_preferido: (detalle.clientes_reparto as any)?.rango_horario,
+        cliente_reparto_telefono: (detalle.clientes_reparto as any)?.telefono_reparto,
+      });
+    });
+  });
+  
+
+  return {
+    inProgress: allTasks.filter(task => task.estado_entrega === 'en_camino'),
+    assigned: allTasks.filter(task => task.estado_entrega === 'pendiente'),
+    completed: allTasks.filter(task => task.estado_entrega === 'entregado'),
+  };
+}
+
+export async function updateDetalleRepartoStatusAction(detalleRepartoId: number, nuevoEstado: DetalleRepartoStatus): Promise<{ success: boolean; updatedTask?: MobileDashboardTask; message?: string }> {
+  const { data, error } = await supabase
+    .from('detalles_reparto')
+    .update({ estado_entrega: nuevoEstado, updated_at: new Date().toISOString() })
+    .eq('id', detalleRepartoId)
+    .select('*, clientes_reparto(*)') // Fetch enriched data
+    .single();
+
+  if (error || !data) {
+    console.error('Error updating detalle_reparto status:', error?.message);
+    return { success: false, message: 'Error al actualizar estado de la entrega.' };
+  }
+  
+  // Enrich the returned task
+  const enrichedTask: MobileDashboardTask = {
+    ...data,
+    cliente_reparto_nombre: (data.clientes_reparto as any)?.nombre_reparto,
+    cliente_reparto_direccion: (data.clientes_reparto as any)?.direccion_reparto,
+    cliente_reparto_horario_preferido: (data.clientes_reparto as any)?.rango_horario,
+    cliente_reparto_telefono: (data.clientes_reparto as any)?.telefono_reparto,
+  };
+
+
+  revalidatePath('/mobile-dashboard'); 
+  return { success: true, updatedTask: enrichedTask };
+}
+
+export async function logoutDriverAction(): Promise<{ success: boolean }> {
+  // Placeholder for actual logout logic (e.g., clearing session, redirecting)
+  console.log("Driver logout action called");
+  // In a real app, you would:
+  // - Call Supabase auth.signOut() if using Supabase Auth for drivers
+  // - Clear any session cookies or tokens
+  // - Potentially redirect the user
+  revalidatePath('/mobile-dashboard'); // May not be necessary if redirecting
+  return { success: true };
+}
     
