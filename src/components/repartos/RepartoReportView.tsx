@@ -8,16 +8,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Printer, CalendarDays, User, Users, Map, Clock4, ListChecks, Info, DollarSign, FileText, Hash, MapPin, Watch, AlertOctagon, StickyNote } from 'lucide-react';
+import { ArrowLeft, Printer, CalendarDays, User, Users, Map, Clock4, ListChecks, Info, DollarSign, FileText, Hash, MapPin, Watch, AlertOctagon, StickyNote, Package } from 'lucide-react';
 import Link from 'next/link';
 import type { VariantProps } from 'class-variance-authority';
+import React from 'react'; // Import React
 
 interface RepartoReportViewProps {
   reparto: Reparto;
 }
 
 const ClientSideFormattedDate = ({ dateString, formatString = 'PPP' }: { dateString?: string | null, formatString?: string }) => {
-  const [displayText, setDisplayText] = React.useState<string>('...'); // Evitar Math.random()
+  const [displayText, setDisplayText] = React.useState<string>('...'); 
   React.useEffect(() => {
     if (dateString) {
       try {
