@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -15,8 +16,8 @@ const navLinks = [
   { href: '/Clientes', label: 'Clientes' },
   { href: '/Repartidores', label: 'Repartidores' },
   { href: '/ClientesReparto', label: 'Clientes de Reparto' },
-  // Agrega más enlaces aquí si es necesario
-];
+  { href: '/Repartos', label: 'Gestionar Repartos' },
+]; // Asegurarse de que el array está cerrado aquí
 
 export function Navbar() {
   const pathname = usePathname();
