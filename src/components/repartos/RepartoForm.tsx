@@ -5,7 +5,7 @@ import type { Reparto, RepartoFormData, Client, DeliveryPerson, DeliveryClientIn
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { repartoSchema } from '@/lib/schema';
-import { ALL_DELIVERY_STATUSES } from '@/types';
+import { ALL_REPARTO_STATUSES } from '@/types'; // Corrected import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -137,11 +137,9 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
       ...data,
       cliente_id: data.cliente_id === NO_CLIENTE_PRINCIPAL_VALUE ? null : data.cliente_id,
       tanda: Number(data.tanda), 
-      // cliente_reparto_id is already a string from the form, no need to convert to Number here
-      // The server action will handle parseInt before DB interaction
       detalles_reparto: data.detalles_reparto.map(d => ({
         ...d,
-        // cliente_reparto_id: Number(d.cliente_reparto_id) // REMOVED THIS LINE
+        // cliente_reparto_id is already a string, no conversion needed here
       })),
     };
 
@@ -306,7 +304,7 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
                         <SelectTrigger><SelectValue placeholder="Seleccione un estado" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {ALL_DELIVERY_STATUSES.map((estado) => (
+                        {ALL_REPARTO_STATUSES.map((estado) => ( // Corrected usage
                           <SelectItem key={estado} value={estado}>{estado.charAt(0).toUpperCase() + estado.slice(1)}</SelectItem>
                         ))}
                       </SelectContent>
