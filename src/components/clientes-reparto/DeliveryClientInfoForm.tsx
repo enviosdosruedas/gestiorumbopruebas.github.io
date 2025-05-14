@@ -7,7 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { deliveryClientInfoSchema } from '@/lib/schema';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+// import { Textarea } from '@/components/ui/textarea'; // Replaced by AddressAutocompleteInput
+import { AddressAutocompleteInput } from '@/components/clientes/AddressAutocompleteInput'; // Import the component
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -45,6 +46,7 @@ const parseRangoHorario = (rango: string | null | undefined): { desde: string, h
 export default function DeliveryClientInfoForm({ initialData, allClients, onSuccess, onCancel }: DeliveryClientInfoFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addressValidationUIMessage, setAddressValidationUIMessage] = useState<string | null>(null); // For address validation UI feedback
 
   const initialHorario = initialData?.rango_horario ? parseRangoHorario(initialData.rango_horario) : { desde: '', hasta: '' };
 
@@ -84,13 +86,22 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
         telefono_reparto: '' 
       });
     }
+    setAddressValidationUIMessage(null); // Clear UI message on form reset
   }, [initialData, form]);
+
+  const handleAddressValidated = (isValid: boolean, validatedAddress?: string) => {
+    if (isValid) {
+        setAddressValidationUIMessage(`Dirección parece válida: ${validatedAddress || form.getValues("direccion_reparto")}`);
+    } else {
+        setAddressValidationUIMessage("Dirección podría no ser válida o no estar en Mar del Plata.");
+    }
+  };
   
   const onSubmit = async (data: DeliveryClientInfoFormData) => {
     setIsSubmitting(true);
+    setAddressValidationUIMessage(null);
     try {
       const result = initialData
-        // El tipo de `data` aquí ya es DeliveryClientInfoFormData que incluye desde/hasta
         ? await updateDeliveryClientInfoAction(initialData.id, data) 
         : await addDeliveryClientInfoAction(data);
 
@@ -183,8 +194,18 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
                 <FormItem>
                   <FormLabel className="flex items-center gap-1"><MapPin className="h-4 w-4"/>Dirección Específica de Reparto (Opcional)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Si es diferente a la dirección principal del cliente" {...field} value={field.value ?? ""} disabled={isSubmitting} />
+                     <AddressAutocompleteInput
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onAddressValidated={handleAddressValidated}
+                      className="w-full"
+                    />
                   </FormControl>
+                   {addressValidationUIMessage && (
+                    <p className={`text-sm mt-1 ${addressValidationUIMessage.startsWith("Dirección parece válida") || addressValidationUIMessage.startsWith("Dirección validada por IA") ? 'text-green-600' : 'text-red-600'}`}>
+                      {addressValidationUIMessage}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -269,3 +290,4 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
     </Card>
   );
 }
+
