@@ -5,7 +5,7 @@ import type { Reparto, RepartoFormData, Client, DeliveryPerson, DeliveryClientIn
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { repartoSchema } from '@/lib/schema';
-import { ALL_DELIVERY_STATUSES } from '@/types'; // Corregida la importación
+import { ALL_DELIVERY_STATUSES } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,7 +31,7 @@ interface RepartoFormProps {
   onCancel?: () => void;
 }
 
-const NO_CLIENT_PRINCIPAL_VALUE = "___NO_CLIENTE_PRINCIPAL___";
+const NO_CLIENTE_PRINCIPAL_VALUE = "___NO_CLIENTE_PRINCIPAL___";
 
 export default function RepartoForm({ initialData, allClientes, allRepartidores, allZonas, onSuccess, onCancel }: RepartoFormProps) {
   const { toast } = useToast();
@@ -50,7 +50,7 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
       cliente_id: initialData?.cliente_id || null,
       zona_id: initialData?.zona_id?.toString() || '',
       tanda: initialData?.tanda || 1,
-      selected_clientes_reparto_ids: [], // This will be replaced by 'detalles_reparto'
+      // selected_clientes_reparto_ids: [], // This will be replaced by 'detalles_reparto'
       detalles_reparto: initialData?.detalles_reparto?.map(dr => ({
         cliente_reparto_id: dr.cliente_reparto_id.toString(),
         valor_entrega: dr.valor_entrega,
@@ -69,7 +69,7 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
   const selectedClientePrincipalId = form.watch('cliente_id');
 
   const fetchDCIForCliente = useCallback(async (clienteId: string | null) => {
-    if (!clienteId || clienteId === NO_CLIENT_PRINCIPAL_VALUE) {
+    if (!clienteId || clienteId === NO_CLIENTE_PRINCIPAL_VALUE) {
       setAvailableDeliveryClientInfos([]);
       form.setValue('detalles_reparto', []); // Clear items if no client or general delivery
       return;
@@ -135,13 +135,13 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
     
     const dataToSubmit = {
       ...data,
-      cliente_id: data.cliente_id === NO_CLIENT_PRINCIPAL_VALUE ? null : data.cliente_id,
-      // Ensure tanda is a number if it comes as string from input type="number"
+      cliente_id: data.cliente_id === NO_CLIENTE_PRINCIPAL_VALUE ? null : data.cliente_id,
       tanda: Number(data.tanda), 
-      // Ensure cliente_reparto_id in detalles_reparto is number
+      // cliente_reparto_id is already a string from the form, no need to convert to Number here
+      // The server action will handle parseInt before DB interaction
       detalles_reparto: data.detalles_reparto.map(d => ({
         ...d,
-        cliente_reparto_id: Number(d.cliente_reparto_id)
+        // cliente_reparto_id: Number(d.cliente_reparto_id) // REMOVED THIS LINE
       })),
     };
 
@@ -325,16 +325,16 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
                   <FormLabel className="flex items-center gap-1"><Users className="h-4 w-4"/>Cliente Principal</FormLabel>
                   <Select 
                     onValueChange={(value) => {
-                      field.onChange(value === NO_CLIENT_PRINCIPAL_VALUE ? null : value);
+                      field.onChange(value === NO_CLIENTE_PRINCIPAL_VALUE ? null : value);
                     }} 
-                    value={field.value === null ? NO_CLIENT_PRINCIPAL_VALUE : field.value || undefined} 
+                    value={field.value === null ? NO_CLIENTE_PRINCIPAL_VALUE : field.value || undefined} 
                     disabled={isSubmitting}
                   >
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Seleccione el cliente principal" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value={NO_CLIENT_PRINCIPAL_VALUE}>Sin cliente principal (Reparto General)</SelectItem>
+                      <SelectItem value={NO_CLIENTE_PRINCIPAL_VALUE}>Sin cliente principal (Reparto General)</SelectItem>
                       {allClientes.map((cl) => (
                         <SelectItem key={cl.id} value={cl.id}>{cl.nombre}</SelectItem>
                       ))}
@@ -345,7 +345,7 @@ export default function RepartoForm({ initialData, allClientes, allRepartidores,
               )}
             />
 
-            {selectedClientePrincipalId && selectedClientePrincipalId !== NO_CLIENT_PRINCIPAL_VALUE && (
+            {selectedClientePrincipalId && selectedClientePrincipalId !== NO_CLIENTE_PRINCIPAL_VALUE && (
               <Card className="pt-4">
                 <CardHeader className="p-2 pt-0">
                   <CardTitle className="text-lg">Ítems de Entrega</CardTitle>
