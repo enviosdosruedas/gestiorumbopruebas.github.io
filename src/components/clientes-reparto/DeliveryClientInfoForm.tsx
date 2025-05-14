@@ -23,9 +23,30 @@ interface DeliveryClientInfoFormProps {
   onCancel?: () => void;
 }
 
+// Helper para parsear el string de rango_horario
+const parseRangoHorario = (rango: string | null | undefined): { desde: string, hasta: string } => {
+  if (!rango || typeof rango !== 'string') return { desde: '', hasta: '' };
+  const parts = rango.split(' - ');
+  if (parts.length === 2) {
+    return { desde: parts[0].trim(), hasta: parts[1].trim() };
+  }
+  // Manejar otros formatos si es necesario, o si solo hay una hora
+  if (rango.toLowerCase().startsWith('desde ')) {
+    return { desde: rango.substring(6).trim(), hasta: '' };
+  }
+  if (rango.toLowerCase().startsWith('hasta ')) {
+    return { desde: '', hasta: rango.substring(6).trim() };
+  }
+  // Si no se puede parsear bien, devolver vacío o el string original en un campo si es necesario
+  return { desde: '', hasta: '' }; 
+};
+
+
 export default function DeliveryClientInfoForm({ initialData, allClients, onSuccess, onCancel }: DeliveryClientInfoFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const initialHorario = initialData?.rango_horario ? parseRangoHorario(initialData.rango_horario) : { desde: '', hasta: '' };
 
   const form = useForm<DeliveryClientInfoFormData>({
     resolver: zodResolver(deliveryClientInfoSchema),
@@ -33,7 +54,8 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
       cliente_id: initialData?.cliente_id || '',
       nombre_reparto: initialData?.nombre_reparto || '',
       direccion_reparto: initialData?.direccion_reparto || '',
-      rango_horario: initialData?.rango_horario || '',
+      rango_horario_desde: initialHorario.desde,
+      rango_horario_hasta: initialHorario.hasta,
       tarifa: initialData?.tarifa === null || initialData?.tarifa === undefined ? undefined : initialData.tarifa,
       telefono_reparto: initialData?.telefono_reparto || '',
     },
@@ -41,16 +63,26 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
 
   useEffect(() => {
     if (initialData) {
+      const horario = parseRangoHorario(initialData.rango_horario);
       form.reset({
         cliente_id: initialData.cliente_id,
         nombre_reparto: initialData.nombre_reparto,
         direccion_reparto: initialData.direccion_reparto || '',
-        rango_horario: initialData.rango_horario || '',
+        rango_horario_desde: horario.desde,
+        rango_horario_hasta: horario.hasta,
         tarifa: initialData.tarifa === null || initialData.tarifa === undefined ? undefined : initialData.tarifa,
         telefono_reparto: initialData.telefono_reparto || '',
       });
     } else {
-      form.reset({ cliente_id: '', nombre_reparto: '', direccion_reparto: '', rango_horario: '', tarifa: undefined, telefono_reparto: '' });
+      form.reset({ 
+        cliente_id: '', 
+        nombre_reparto: '', 
+        direccion_reparto: '', 
+        rango_horario_desde: '',
+        rango_horario_hasta: '',
+        tarifa: undefined, 
+        telefono_reparto: '' 
+      });
     }
   }, [initialData, form]);
   
@@ -58,7 +90,8 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
     setIsSubmitting(true);
     try {
       const result = initialData
-        ? await updateDeliveryClientInfoAction(initialData.id, data)
+        // El tipo de `data` aquí ya es DeliveryClientInfoFormData que incluye desde/hasta
+        ? await updateDeliveryClientInfoAction(initialData.id, data) 
         : await addDeliveryClientInfoAction(data);
 
       if (result.success && result.deliveryClientInfo) {
@@ -67,7 +100,7 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
           description: `La información para ${result.deliveryClientInfo.nombre_reparto} ha sido ${initialData ? 'actualizada' : 'agregada'} exitosamente.`,
         });
         onSuccess();
-        form.reset({ cliente_id: '', nombre_reparto: '', direccion_reparto: '', rango_horario: '', tarifa: undefined, telefono_reparto: '' }); 
+        form.reset({ cliente_id: '', nombre_reparto: '', direccion_reparto: '', rango_horario_desde: '', rango_horario_hasta: '', tarifa: undefined, telefono_reparto: '' }); 
       } else {
         if (result.errors) {
           result.errors.forEach(err => {
@@ -169,19 +202,36 @@ export default function DeliveryClientInfoForm({ initialData, allClients, onSucc
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="rango_horario"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-1"><Clock className="h-4 w-4"/>Rango Horario Preferido (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Lunes a Viernes 9-18hs, Sábados 9-13hs" {...field} value={field.value ?? ""} disabled={isSubmitting}/>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="rango_horario_desde"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1"><Clock className="h-4 w-4"/>Horario Desde (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} value={field.value ?? ""} disabled={isSubmitting}/>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rango_horario_hasta"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1"><Clock className="h-4 w-4"/>Horario Hasta (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} value={field.value ?? ""} disabled={isSubmitting}/>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
              <FormField
               control={form.control}
               name="tarifa"

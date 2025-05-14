@@ -5,24 +5,25 @@ import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, Delive
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema, repartidorSchema, deliveryClientInfoSchema } from '@/lib/schema';
+import { clientSchema, repartidorSchema, deliveryClientInfoSchema } from '@/lib/schema'; // deliveryClientInfoSchema ahora valida desde/hasta
 import { supabase } from '@/lib/supabaseClient';
 
 // Client Actions
 export async function getClients(): Promise<Client[]> {
   const { data, error } = await supabase
     .from('clientes')
-    .select('id, nombre, direccion, telefono, email')
+    .select('id, nombre, direccion, telefono, email') // No hay created_at ni updated_at en la tabla clientes segun DDL
     .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
+  // Ajustar mapeo si es necesario, pero parece coincidir bien ahora
   return data.map(client => ({
     id: client.id,
-    nombre: client.nombre, // Mapeado desde 'nombre'
-    direccion: client.direccion,
+    nombre: client.nombre,
+    direccion: client.direccion, // Es nullable
     telefono: client.telefono,
     email: client.email,
   })) as Client[];
@@ -46,14 +47,14 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   }
 
   const clientDataToInsert = {
-    nombre: name,
-    direccion: address, // La tabla DDL tiene 'direccion'
+    nombre: name, // DDL tiene 'nombre'
+    direccion: address, // DDL tiene 'direccion'
     telefono: telefono || null,
     email: email || null,
   };
 
   const { data: newClientRecord, error: insertError } = await supabase
-    .from('clientes')
+    .from('clientes') // Nombre correcto de la tabla
     .insert(clientDataToInsert)
     .select('id, nombre, direccion, telefono, email')
     .single();
@@ -86,7 +87,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   const { name, address, telefono, email } = validationResult.data;
   
   const { data: clientToUpdate, error: findError } = await supabase
-    .from('clientes')
+    .from('clientes') // Nombre correcto de la tabla
     .select('id')
     .eq('id', id)
     .single();
@@ -113,7 +114,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   };
 
   const { data: updatedClientRecord, error: updateError } = await supabase
-    .from('clientes')
+    .from('clientes') // Nombre correcto de la tabla
     .update(clientDataToUpdate)
     .eq('id', id)
     .select('id, nombre, direccion, telefono, email')
@@ -140,7 +141,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
 export async function deleteClientAction(id: string): Promise<{ success: boolean; message?: string }> {
   const { error: deleteError } = await supabase
-    .from('clientes')
+    .from('clientes') // Nombre correcto de la tabla
     .delete()
     .eq('id', id);
 
@@ -290,31 +291,42 @@ export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
     throw new Error('Failed to fetch delivery client infos.');
   }
 
-  // Transform data to match DeliveryClientInfo, including cliente_nombre
   return data.map(item => ({
     ...item,
-    // @ts-ignore
+    // @ts-ignore Supabase types might not be perfect for nested selects initially
     cliente_nombre: item.clientes?.nombre || 'Cliente Desconocido', 
-    // tarif should be number or null
     tarifa: item.tarifa === null || item.tarifa === undefined ? null : Number(item.tarifa),
-
   })) as DeliveryClientInfo[];
 }
 
+function formatRangoHorario(desde?: string | null, hasta?: string | null): string | null {
+  if (desde && hasta) {
+    return `${desde} - ${hasta}`;
+  } else if (desde) {
+    return `Desde ${desde}`;
+  } else if (hasta) {
+    return `Hasta ${hasta}`;
+  }
+  return null;
+}
+
 export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFormData): Promise<{ success: boolean; deliveryClientInfo?: DeliveryClientInfo; errors?: z.ZodIssue[]; message?: string }> {
+  // El schema ahora valida DeliveryClientInfoFormData que incluye _desde y _hasta
   const validationResult = deliveryClientInfoSchema.safeParse(formData);
   if (!validationResult.success) {
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto } = validationResult.data;
+  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario_desde, rango_horario_hasta, tarifa, telefono_reparto } = validationResult.data;
+
+  const rango_horario_final = formatRangoHorario(rango_horario_desde, rango_horario_hasta);
 
   const dataToInsert = {
     cliente_id,
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
-    rango_horario: rango_horario || null,
-    tarifa: tarifa === undefined ? null : tarifa, // Asegurar que null se inserta si es undefined
+    rango_horario: rango_horario_final, // Usar el string combinado
+    tarifa: tarifa === undefined ? null : tarifa,
     telefono_reparto: telefono_reparto || null,
   };
 
@@ -345,7 +357,7 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario, tarifa, telefono_reparto } = validationResult.data;
+  const { cliente_id, nombre_reparto, direccion_reparto, rango_horario_desde, rango_horario_hasta, tarifa, telefono_reparto } = validationResult.data;
 
   const { data: recordToUpdate, error: findError } = await supabase
     .from('clientes_reparto')
@@ -357,12 +369,14 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     console.error('Supabase find delivery client info for update error:', findError ? (findError.message || JSON.stringify(findError)) : 'Record not found');
     return { success: false, message: 'Registro de cliente de reparto no encontrado.' };
   }
+  
+  const rango_horario_final = formatRangoHorario(rango_horario_desde, rango_horario_hasta);
 
   const dataToUpdate = {
     cliente_id,
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
-    rango_horario: rango_horario || null,
+    rango_horario: rango_horario_final, // Usar el string combinado
     tarifa: tarifa === undefined ? null : tarifa,
     telefono_reparto: telefono_reparto || null,
   };

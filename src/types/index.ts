@@ -1,11 +1,10 @@
 
 export interface Client {
   id: string; // UUID from Supabase
-  nombre: string; // Mapeado desde 'nombre' en la tabla 'clientes'
-  direccion: string | null;
+  nombre: string; 
+  direccion: string | null; // Ajustado para reflejar que la dirección puede ser null
   telefono?: string | null;
   email?: string | null;
-  // created_at y updated_at no están en la tabla clientes según el último DDL
 }
 
 export interface DeliveryPerson {
@@ -21,14 +20,25 @@ export interface DeliveryClientInfo {
   cliente_id: string; // UUID, FK a clientes.id
   nombre_reparto: string;
   direccion_reparto: string | null;
-  rango_horario: string | null;
+  rango_horario: string | null; // Este se mantendrá como string en el modelo de DB por ahora
   tarifa: number | null;
   telefono_reparto: string | null;
-  created_at?: string | null; // Se maneja por DB
-  updated_at?: string | null; // Se maneja por DB trigger
-  // Para visualización, podríamos añadir el nombre del cliente principal
+  created_at?: string | null; 
+  updated_at?: string | null; 
   cliente_nombre?: string;
 }
+
+// FormData para el formulario, ahora con campos separados para el horario
+export interface DeliveryClientInfoFormData {
+  cliente_id: string;
+  nombre_reparto: string;
+  direccion_reparto?: string | null;
+  rango_horario_desde?: string | null; // Nuevo campo
+  rango_horario_hasta?: string | null; // Nuevo campo
+  tarifa?: number | null;
+  telefono_reparto?: string | null;
+}
+
 
 // Used by AI flow
 export interface AddressValidationSuggestion {
@@ -46,6 +56,7 @@ export interface Database {
           direccion: string | null;
           telefono: string | null;
           email: string | null;
+          // created_at and updated_at are not explicitly in the DDL for clientes
         };
         Insert: {
           id?: string;
@@ -68,21 +79,21 @@ export interface Database {
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto: string | null;
-          rango_horario: string | null;
+          rango_horario: string | null; // Mantenido como string
           tarifa: number | null;
           created_at: string | null;
           updated_at: string | null;
           telefono_reparto: string | null;
         };
         Insert: {
-          id?: number; // Opcional porque es serial
+          id?: number; 
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto?: string | null;
-          rango_horario?: string | null;
+          rango_horario?: string | null; // Se guardará el string combinado aquí
           tarifa?: number | null;
-          created_at?: string | null; // Supabase lo maneja
-          updated_at?: string | null; // Supabase lo maneja
+          created_at?: string | null; 
+          updated_at?: string | null; 
           telefono_reparto?: string | null;
         };
         Update: {
@@ -90,10 +101,9 @@ export interface Database {
           cliente_id?: string;
           nombre_reparto?: string;
           direccion_reparto?: string | null;
-          rango_horario?: string | null;
+          rango_horario?: string | null; // Se guardará el string combinado aquí
           tarifa?: number | null;
-          // created_at no se actualiza
-          updated_at?: string | null; // Supabase lo maneja
+          updated_at?: string | null; 
           telefono_reparto?: string | null;
         };
       };
@@ -137,12 +147,12 @@ export interface Database {
       repartos: {
         Row: {
           id: number;
-          fecha_reparto: string; // date
+          fecha_reparto: string; 
           repartidor_id: string;
           cliente_id: string;
           observaciones: string | null;
-          created_at: string | null; // timestamp without time zone
-          updated_at: string | null; // timestamp without time zone
+          created_at: string | null; 
+          updated_at: string | null; 
           estado: string | null;
         };
         Insert: {
@@ -172,8 +182,8 @@ export interface Database {
           nombre: string;
           pass: string;
           rol: string;
-          created_at: string | null; // timestamp without time zone
-          updated_at: string | null; // timestamp without time zone
+          created_at: string | null; 
+          updated_at: string | null; 
           repartidor_id: string | null;
         };
         Insert: {
@@ -200,7 +210,7 @@ export interface Database {
       // Define views here if any
     };
     Functions: {
-      update_updated_at_column?: { // Asumo que esta función existe y se usa en triggers
+      update_updated_at_column?: { 
         Args: {};
         Returns: unknown;
       };
