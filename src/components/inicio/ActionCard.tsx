@@ -5,18 +5,28 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Users, Truck, ClipboardList, PackagePlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+// Map icon names to actual Lucide components
+const iconMap: { [key: string]: LucideIcon } = {
+  Users,
+  Truck,
+  ClipboardList,
+  PackagePlus,
+};
+
 interface ActionCardProps {
-  icon: LucideIcon;
+  iconName: string; // Changed from icon: LucideIcon to iconName: string
   title: string;
   description: string;
   href: string;
   actionText?: string;
 }
 
-export function ActionCard({ icon: Icon, title, description, href, actionText = "Ir a la sección" }: ActionCardProps) {
+export function ActionCard({ iconName, title, description, href, actionText = "Ir a la sección" }: ActionCardProps) {
+  const IconComponent = iconMap[iconName] || Users; // Default to Users icon if not found
+
   return (
     <motion.div
       whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0,0,0,0.1)" }}
@@ -26,7 +36,7 @@ export function ActionCard({ icon: Icon, title, description, href, actionText = 
       <Card className="flex flex-col h-full overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3 mb-3">
-            <Icon className="h-8 w-8 text-primary" />
+            <IconComponent className="h-8 w-8 text-primary" />
             <CardTitle className="text-2xl">{title}</CardTitle>
           </div>
           <CardDescription className="text-sm">{description}</CardDescription>

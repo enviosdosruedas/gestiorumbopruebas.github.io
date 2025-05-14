@@ -2,7 +2,8 @@
 import type { Metadata } from 'next';
 import { HeroSection } from '@/components/inicio/HeroSection';
 import { ActionCard } from '@/components/inicio/ActionCard';
-import { Users, Truck, ClipboardList, PackagePlus } from 'lucide-react';
+// Icons are no longer directly imported here for passing as props,
+// their names will be passed as strings to ActionCard.
 
 export const metadata: Metadata = {
   title: 'Panel de Control - Rumbo Envios',
@@ -11,28 +12,28 @@ export const metadata: Metadata = {
 
 const actions = [
   {
-    icon: Users,
+    iconName: 'Users', // Changed from icon: Users
     title: 'Gestionar Clientes',
     description: 'Administre su base de datos de clientes, actualice información y realice seguimientos.',
     href: '/Clientes',
     actionText: 'Ver Clientes',
   },
   {
-    icon: Truck,
+    iconName: 'Truck', // Changed from icon: Truck
     title: 'Gestionar Repartidores',
     description: 'Organice su equipo de repartidores, asigne vehículos y supervise sus zonas de trabajo.',
     href: '/Repartidores',
     actionText: 'Ver Repartidores',
   },
   {
-    icon: ClipboardList,
+    iconName: 'ClipboardList', // Changed from icon: ClipboardList
     title: 'Clientes de Reparto',
     description: 'Defina puntos de entrega específicos para clientes recurrentes, con horarios y tarifas personalizadas.',
     href: '/ClientesReparto',
     actionText: 'Ver Clientes de Reparto',
   },
   {
-    icon: PackagePlus,
+    iconName: 'PackagePlus', // Changed from icon: PackagePlus
     title: 'Gestionar Repartos',
     description: 'Cree nuevas hojas de ruta, asigne repartos a repartidores y realice el seguimiento del estado de las entregas.',
     href: '/Repartos',
@@ -52,7 +53,7 @@ export default function HomePage() {
           {actions.map((action) => (
             <ActionCard
               key={action.href}
-              icon={action.icon}
+              iconName={action.iconName} // Pass iconName as string
               title={action.title}
               description={action.description}
               href={action.href}
