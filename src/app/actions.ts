@@ -18,52 +18,41 @@ export async function getClients(): Promise<Client[]> {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
-  // Ensure createdAt and updatedAt are strings if they exist
+  // Ensure created_at and updated_at are strings if they exist and map to domain model
   return data.map(client => ({
-    ...client,
-    createdAt: client.createdAt ? new Date(client.createdAt).toISOString() : undefined,
-    updatedAt: client.updatedAt ? new Date(client.updatedAt).toISOString() : undefined,
+    id: client.id,
+    name: client.name,
+    address: client.address,
+    telefono: client.telefono,
+    email: client.email,
+    createdAt: client.created_at ? new Date(client.created_at).toISOString() : undefined,
+    updatedAt: client.updated_at ? new Date(client.updated_at).toISOString() : undefined,
   })) as Client[];
 }
 
-export async function addClientAction(formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string }> {
+export async function addClientAction(formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string; addressValidation?: ValidateAddressOutput }> {
   const validationResult = clientSchema.safeParse(formData);
   if (!validationResult.success) {
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { clientCode, name, address } = validationResult.data;
-
-  // Check for duplicate client code
-  const { data: existingClient, error: fetchError } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('clientCode', clientCode) // Assuming your column name is clientCode
-    .single();
-
-  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: Row not found, which is fine here
-    console.error('Supabase check duplicate clientCode error:', fetchError.message || JSON.stringify(fetchError));
-    return { success: false, message: 'Error checking client code. Please try again.' };
-  }
-  if (existingClient) {
-    return { success: false, message: 'Client code already exists.' };
-  }
+  const { name, address, telefono, email } = validationResult.data;
   
-  let validatedAddressInfo: ValidateAddressOutput;
+  let validatedAddressInfo: ValidateAddressOutput | undefined;
   try {
+    // We can still validate the address for immediate UI feedback, but won't store its specific result fields
     validatedAddressInfo = await validateAddress({ address });
   } catch (error) {
     console.error('AI Address Validation Error:', error);
-    return { success: false, message: 'Error validating address with AI. Please try again.' };
+    // Non-fatal, proceed with client creation but inform about validation issue potentially
   }
 
   const clientDataToInsert = {
-    clientCode,
     name,
     address,
-    validatedAddress: validatedAddressInfo.isValid ? validatedAddressInfo.validatedAddress : null,
-    isAddressValid: validatedAddressInfo.isValid,
-    // Supabase will handle createdAt and updatedAt if table is configured with defaults
+    telefono: telefono || null,
+    email: email || null,
+    // Supabase will handle created_at and updated_at if table is configured with defaults
   };
 
   const { data: newClientRecord, error: insertError } = await supabase
@@ -74,29 +63,33 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
 
   if (insertError) {
     console.error('Supabase addClient error:', insertError.message || JSON.stringify(insertError));
-    return { success: false, message: 'Failed to add client to database.' };
+    return { success: false, message: 'Failed to add client to database.', addressValidation: validatedAddressInfo };
   }
 
   revalidatePath('/Clientes');
   return { 
     success: true, 
     client: {
-      ...newClientRecord,
-      createdAt: newClientRecord.createdAt ? new Date(newClientRecord.createdAt).toISOString() : undefined,
-      updatedAt: newClientRecord.updatedAt ? new Date(newClientRecord.updatedAt).toISOString() : undefined,
-    } as Client
+      id: newClientRecord.id,
+      name: newClientRecord.name,
+      address: newClientRecord.address,
+      telefono: newClientRecord.telefono,
+      email: newClientRecord.email,
+      createdAt: newClientRecord.created_at ? new Date(newClientRecord.created_at).toISOString() : undefined,
+      updatedAt: newClientRecord.updated_at ? new Date(newClientRecord.updated_at).toISOString() : undefined,
+    } as Client,
+    addressValidation: validatedAddressInfo
   };
 }
 
-export async function updateClientAction(id: string, formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string }> {
+export async function updateClientAction(id: string, formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string; addressValidation?: ValidateAddressOutput }> {
   const validationResult = clientSchema.safeParse(formData);
   if (!validationResult.success) {
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { clientCode, name, address } = validationResult.data;
+  const { name, address, telefono, email } = validationResult.data;
   
-  // Check if client exists
   const { data: clientToUpdate, error: findError } = await supabase
     .from('clients')
     .select('id')
@@ -104,41 +97,23 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     .single();
 
   if (findError || !clientToUpdate) {
-    console.error('Supabase find client for update error:', findError.message || JSON.stringify(findError));
+    console.error('Supabase find client for update error:', findError ? (findError.message || JSON.stringify(findError)) : 'Client not found');
     return { success: false, message: 'Client not found.' };
   }
-
-  // Check for duplicate client code (excluding the current client being updated)
-  const { data: duplicateClient, error: duplicateCheckError } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('clientCode', clientCode)
-    .neq('id', id)
-    .single();
-
-  if (duplicateCheckError && duplicateCheckError.code !== 'PGRST116') {
-    console.error('Supabase check duplicate clientCode on update error:', duplicateCheckError.message || JSON.stringify(duplicateCheckError));
-    return { success: false, message: 'Error checking client code. Please try again.' };
-  }
-  if (duplicateClient) {
-    return { success: false, message: 'Client code already exists for another client.' };
-  }
-
-  let validatedAddressInfo: ValidateAddressOutput;
+  
+  let validatedAddressInfo: ValidateAddressOutput | undefined;
   try {
     validatedAddressInfo = await validateAddress({ address });
   } catch (error) {
     console.error('AI Address Validation Error:', error);
-    return { success: false, message: 'Error validating address with AI. Please try again.' };
   }
   
   const clientDataToUpdate = {
-    clientCode,
     name,
     address,
-    validatedAddress: validatedAddressInfo.isValid ? validatedAddressInfo.validatedAddress : null,
-    isAddressValid: validatedAddressInfo.isValid,
-    updatedAt: new Date().toISOString(), // Explicitly set updatedAt
+    telefono: telefono || null,
+    email: email || null,
+    updated_at: new Date().toISOString(), 
   };
 
   const { data: updatedClientRecord, error: updateError } = await supabase
@@ -150,17 +125,22 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
   if (updateError) {
     console.error('Supabase updateClient error:', updateError.message || JSON.stringify(updateError));
-    return { success: false, message: 'Failed to update client in database.' };
+    return { success: false, message: 'Failed to update client in database.', addressValidation: validatedAddressInfo };
   }
   
   revalidatePath('/Clientes');
   return { 
     success: true, 
     client: {
-      ...updatedClientRecord,
-      createdAt: updatedClientRecord.createdAt ? new Date(updatedClientRecord.createdAt).toISOString() : undefined,
-      updatedAt: updatedClientRecord.updatedAt ? new Date(updatedClientRecord.updatedAt).toISOString() : undefined,
-    } as Client
+      id: updatedClientRecord.id,
+      name: updatedClientRecord.name,
+      address: updatedClientRecord.address,
+      telefono: updatedClientRecord.telefono,
+      email: updatedClientRecord.email,
+      createdAt: updatedClientRecord.created_at ? new Date(updatedClientRecord.created_at).toISOString() : undefined,
+      updatedAt: updatedClientRecord.updated_at ? new Date(updatedClientRecord.updated_at).toISOString() : undefined,
+    } as Client,
+    addressValidation: validatedAddressInfo
   };
 }
 
@@ -178,4 +158,3 @@ export async function deleteClientAction(id: string): Promise<{ success: boolean
   revalidatePath('/Clientes');
   return { success: true };
 }
-

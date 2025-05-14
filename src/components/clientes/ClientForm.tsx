@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Client, ClientFormData } from '@/types';
@@ -23,50 +24,44 @@ interface ClientFormProps {
 export default function ClientForm({ initialClientData, onSuccess, onCancel }: ClientFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [addressValidationStatus, setAddressValidationStatus] = useState<{isValid: boolean, message?: string} | null>(null);
+  const [addressValidationUIMessage, setAddressValidationUIMessage] = useState<string | null>(null);
 
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      clientCode: initialClientData?.clientCode || '',
       name: initialClientData?.name || '',
       address: initialClientData?.address || '',
+      telefono: initialClientData?.telefono || '',
+      email: initialClientData?.email || '',
     },
   });
 
   useEffect(() => {
     if (initialClientData) {
       form.reset({
-        clientCode: initialClientData.clientCode,
         name: initialClientData.name,
         address: initialClientData.address,
+        telefono: initialClientData.telefono || '',
+        email: initialClientData.email || '',
       });
-      if (initialClientData.isAddressValid !== undefined) {
-         setAddressValidationStatus({
-            isValid: !!initialClientData.isAddressValid,
-            message: initialClientData.isAddressValid ? `Validated: ${initialClientData.validatedAddress}` : "Previous address was not valid in Mar del Plata."
-         });
-      } else {
-        setAddressValidationStatus(null);
-      }
     } else {
-      form.reset({ clientCode: '', name: '', address: '' });
-      setAddressValidationStatus(null);
+      form.reset({ name: '', address: '', telefono: '', email: '' });
     }
+    setAddressValidationUIMessage(null); // Clear UI message on form reset
   }, [initialClientData, form]);
   
   const handleAddressValidated = (isValid: boolean, validatedAddress?: string) => {
     if (isValid) {
-        setAddressValidationStatus({ isValid: true, message: `Address appears valid: ${validatedAddress || form.getValues("address")}` });
+        setAddressValidationUIMessage(`Dirección parece válida: ${validatedAddress || form.getValues("address")}`);
     } else {
-        setAddressValidationStatus({ isValid: false, message: "Address may not be valid or not in Mar del Plata." });
+        setAddressValidationUIMessage("Dirección podría no ser válida o no estar en Mar del Plata.");
     }
   };
 
   const onSubmit = async (data: ClientFormData) => {
     setIsSubmitting(true);
-    setAddressValidationStatus(null); // Clear previous validation message
+    setAddressValidationUIMessage(null); 
 
     try {
       const result = initialClientData
@@ -75,14 +70,13 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
 
       if (result.success && result.client) {
         toast({
-          title: initialClientData ? 'Client Updated' : 'Client Added',
-          description: `Client ${result.client.name} has been successfully ${initialClientData ? 'updated' : 'added'}.`,
+          title: initialClientData ? 'Cliente Actualizado' : 'Cliente Agregado',
+          description: `Cliente ${result.client.name} ha sido ${initialClientData ? 'actualizado' : 'agregado'} exitosamente.`,
           variant: 'default',
         });
         onSuccess();
-        form.reset({ clientCode: '', name: '', address: '' }); // Reset form after successful submission
+        form.reset({ name: '', address: '', telefono: '', email: '' }); 
       } else {
-        // Display server-side validation errors or general message
         if (result.errors) {
           result.errors.forEach(err => {
             form.setError(err.path[0] as keyof ClientFormData, { message: err.message });
@@ -90,21 +84,23 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
         }
         toast({
           title: 'Error',
-          description: result.message || `Failed to ${initialClientData ? 'update' : 'add'} client. Please check the form.`,
+          description: result.message || `Error al ${initialClientData ? 'actualizar' : 'agregar'} cliente. Por favor revise el formulario.`,
           variant: 'destructive',
         });
-        // Set specific address validation message from server if available, related to AI check
-        if(result.client && result.client.isAddressValid === false) {
-            setAddressValidationStatus({ isValid: false, message: result.client.validatedAddress || "Address not valid in Mar del Plata." });
-        } else if (result.client && result.client.isAddressValid === true && result.client.validatedAddress) {
-            setAddressValidationStatus({ isValid: true, message: `Validated: ${result.client.validatedAddress}`});
+        // Show address validation feedback from AI if available and not successful
+        if (result.addressValidation) {
+            if (result.addressValidation.isValid) {
+                 setAddressValidationUIMessage(`Dirección validada por IA: ${result.addressValidation.validatedAddress || data.address}`);
+            } else {
+                 setAddressValidationUIMessage(`IA sugiere: ${result.addressValidation.suggestions?.join(', ') || 'Dirección no válida en Mar del Plata.'}`);
+            }
         }
       }
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error('Error en envío de formulario:', error);
       toast({
         title: 'Error',
-        description: `An unexpected error occurred. Please try again.`,
+        description: `Ocurrió un error inesperado. Por favor intente de nuevo.`,
         variant: 'destructive',
       });
     } finally {
@@ -117,10 +113,10 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {initialClientData ? <Save className="h-6 w-6 text-primary" /> : <PlusCircle className="h-6 w-6 text-primary" />}
-          {initialClientData ? 'Edit Client' : 'Add New Client'}
+          {initialClientData ? 'Editar Cliente' : 'Agregar Nuevo Cliente'}
         </CardTitle>
         <CardDescription>
-          {initialClientData ? `Editing client: ${initialClientData.name}` : 'Fill in the details to add a new client.'}
+          {initialClientData ? `Editando cliente: ${initialClientData.name}` : 'Complete los detalles para agregar un nuevo cliente.'}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -128,25 +124,12 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="clientCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client Code</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., C001" {...field} disabled={isSubmitting} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Nombre</FormLabel>
                   <FormControl>
-                    <Input placeholder="Client's full name" {...field} disabled={isSubmitting} />
+                    <Input placeholder="Nombre completo del cliente" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -157,7 +140,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Dirección</FormLabel>
                   <FormControl>
                     <AddressAutocompleteInput
                       {...field}
@@ -165,11 +148,37 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
                       className="w-full"
                     />
                   </FormControl>
-                  {addressValidationStatus && (
-                    <p className={`text-sm mt-1 ${addressValidationStatus.isValid ? 'text-green-600' : 'text-red-600'}`}>
-                      {addressValidationStatus.message}
+                  {addressValidationUIMessage && (
+                    <p className={`text-sm mt-1 ${addressValidationUIMessage.startsWith("Dirección parece válida") || addressValidationUIMessage.startsWith("Dirección validada por IA") ? 'text-green-600' : 'text-red-600'}`}>
+                      {addressValidationUIMessage}
                     </p>
                   )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="telefono"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teléfono (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Número de teléfono" {...field} value={field.value ?? ""} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="correo@ejemplo.com" {...field} value={field.value ?? ""} disabled={isSubmitting} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -178,7 +187,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
           <CardFooter className="flex justify-end gap-4">
             {onCancel && (
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-                <XCircle className="mr-2 h-4 w-4" /> Cancel
+                <XCircle className="mr-2 h-4 w-4" /> Cancelar
               </Button>
             )}
             <Button type="submit" disabled={isSubmitting}>
@@ -187,7 +196,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
               ) : (
                 initialClientData ? <Save className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />
               )}
-              {initialClientData ? 'Save Changes' : 'Add Client'}
+              {initialClientData ? 'Guardar Cambios' : 'Agregar Cliente'}
             </Button>
           </CardFooter>
         </form>

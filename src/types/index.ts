@@ -1,11 +1,10 @@
 
 export interface Client {
   id: string; // UUID from Supabase
-  clientCode: string;
   name: string;
   address: string; // User input address
-  validatedAddress?: string | null;
-  isAddressValid?: boolean | null;
+  telefono?: string | null;
+  email?: string | null;
   createdAt?: string; // ISO date string
   updatedAt?: string; // ISO date string
 }
@@ -25,33 +24,30 @@ export interface Database {
       clients: {
         Row: { // The shape of a row from the clients table
           id: string;
-          clientCode: string;
           name: string;
           address: string;
-          validatedAddress: string | null;
-          isAddressValid: boolean | null;
-          createdAt: string | null;
-          updatedAt: string | null;
+          telefono: string | null;
+          email: string | null;
+          created_at: string | null; // Supabase uses created_at by default
+          updated_at: string | null; // Supabase uses updated_at by default
         };
         Insert: { // The shape of data to insert into the clients table
           id?: string; // Optional because it's auto-generated
-          clientCode: string;
           name: string;
           address: string;
-          validatedAddress?: string | null;
-          isAddressValid?: boolean | null;
-          createdAt?: string | null; // Optional if DB has default
-          updatedAt?: string | null; // Optional if DB has default/trigger
+          telefono?: string | null;
+          email?: string | null;
+          created_at?: string | null; 
+          updated_at?: string | null; 
         };
         Update: { // The shape of data to update in the clients table
           id?: string;
-          clientCode?: string;
           name?: string;
           address?: string;
-          validatedAddress?: string | null;
-          isAddressValid?: boolean | null;
-          createdAt?: string | null;
-          updatedAt?: string | null;
+          telefono?: string | null;
+          email?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
       };
       // ... other tables
