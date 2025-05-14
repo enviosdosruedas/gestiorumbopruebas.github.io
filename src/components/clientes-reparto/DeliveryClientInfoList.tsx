@@ -9,9 +9,31 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { deleteDeliveryClientInfoAction } from '@/app/actions';
 import { Edit3, Trash2, ListChecks, Loader2, User, MapPin, Clock, DollarSign, Phone } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Componente interno para manejar la fecha de forma segura para la hidratación
+const ClientSideFormattedDate = ({ dateString }: { dateString?: string | null }) => {
+  const [displayText, setDisplayText] = useState<string>('...'); // Placeholder inicial, consistente en SSR y cliente
+
+  useEffect(() => {
+    // Este efecto solo se ejecuta en el cliente
+    if (dateString) {
+      try {
+        const date = new Date(dateString); // Interpretado en la zona horaria del cliente
+        setDisplayText(format(date, 'dd/MM/yyyy HH:mm', { locale: es }));
+      } catch (error) {
+        console.error("Error formatting date:", error);
+        setDisplayText('Fecha inválida');
+      }
+    } else {
+      setDisplayText('N/A');
+    }
+  }, [dateString]);
+
+  return <>{displayText}</>;
+};
 
 
 interface DeliveryClientInfoListProps {
@@ -54,15 +76,6 @@ export default function DeliveryClientInfoList({ deliveryClientInfos, onEdit, on
     }
   };
   
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return 'N/A';
-    try {
-      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: es });
-    } catch (error) {
-      return dateString; // Devuelve el string original si hay error de formato
-    }
-  };
-
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
@@ -107,7 +120,9 @@ export default function DeliveryClientInfoList({ deliveryClientInfos, onEdit, on
                   <TableCell>{info.telefono_reparto || 'N/A'}</TableCell>
                   <TableCell>{info.rango_horario || 'N/A'}</TableCell>
                   <TableCell>{info.tarifa !== null && info.tarifa !== undefined ? `$${info.tarifa.toFixed(2)}` : 'N/A'}</TableCell>
-                  <TableCell>{formatDate(info.created_at)}</TableCell>
+                  <TableCell>
+                    <ClientSideFormattedDate dateString={info.created_at} />
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => onEdit(info)} disabled={deletingId === info.id}>
                       <Edit3 className="mr-1 h-4 w-4" />Editar
