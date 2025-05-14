@@ -1,11 +1,11 @@
 
 'use server';
 
-import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData } from '@/types';
+import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData, DeliveryClientInfo, DeliveryClientInfoFormData, Reparto, RepartoFormData, Zona, DetalleRepartoFormData, DetalleReparto } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema } from '@/lib/schema';
+import { clientSchema, repartidorSchema, deliveryClientInfoSchema, repartoSchema, ALL_DELIVERY_STATUSES } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
 
 // Client Actions
@@ -22,7 +22,7 @@ export async function getClients(): Promise<Client[]> {
   return data.map(client => ({
     id: client.id,
     nombre: client.nombre,
-    direccion: client.direccion,
+    direccion: client.direccion, // This is correct
     telefono: client.telefono,
     email: client.email,
   })) as Client[];
@@ -34,20 +34,20 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { name, address, telefono, email } = validationResult.data;
+  const { nombre, direccion, telefono, email } = validationResult.data;
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  if (address) { 
+  if (direccion) { 
     try {
-      validatedAddressInfo = await validateAddress({ address });
+      validatedAddressInfo = await validateAddress({ address: direccion });
     } catch (error) {
       console.error('AI Address Validation Error:', error);
     }
   }
 
   const clientDataToInsert = {
-    nombre: name,
-    direccion: address,
+    nombre: nombre,
+    direccion: direccion,
     telefono: telefono || null,
     email: email || null,
   };
@@ -83,7 +83,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { name, address, telefono, email } = validationResult.data;
+  const { nombre, direccion, telefono, email } = validationResult.data;
   
   const { data: clientToUpdate, error: findError } = await supabase
     .from('clientes')
@@ -97,17 +97,17 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   }
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  if (address) { 
+  if (direccion) { 
     try {
-      validatedAddressInfo = await validateAddress({ address });
+      validatedAddressInfo = await validateAddress({ address: direccion });
     } catch (error) {
       console.error('AI Address Validation Error:', error);
     }
   }
   
   const clientDataToUpdate = {
-    nombre: name,
-    direccion: address,
+    nombre: nombre,
+    direccion: direccion,
     telefono: telefono || null,
     email: email || null,
   };
@@ -159,6 +159,7 @@ export async function getRepartidores(): Promise<DeliveryPerson[]> {
   const { data, error } = await supabase
     .from('repartidores')
     .select('id, nombre, identificacion, telefono, vehiculo')
+    // .eq('status', 'activo') // Uncomment if you add a status column
     .order('nombre', { ascending: true });
 
   if (error) {
@@ -395,6 +396,7 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     rango_horario: rango_horario_final,
     tarifa: tarifa === undefined ? null : tarifa,
     telefono_reparto: telefono_reparto || null,
+    updated_at: new Date().toISOString(),
   };
 
   const { data: updatedRecord, error: updateError } = await supabase
@@ -434,6 +436,23 @@ export async function deleteDeliveryClientInfoAction(id: number): Promise<{ succ
   return { success: true };
 }
 
+// Zona Actions
+export async function getZonas(): Promise<Zona[]> {
+  const { data, error } = await supabase
+    .from('zonas')
+    .select('id, nombre')
+    .order('nombre', { ascending: true });
+
+  if (error) {
+    console.error('Supabase getZonas error:', error.message || JSON.stringify(error));
+    // Consider not throwing an error if zonas are optional or can be empty
+    // For now, let's return empty array on error or if table doesn't exist
+    return []; 
+  }
+  return data as Zona[];
+}
+
+
 // Reparto Actions
 export async function getRepartos(): Promise<Reparto[]> {
   const { data, error } = await supabase
@@ -445,20 +464,14 @@ export async function getRepartos(): Promise<Reparto[]> {
       repartidores ( nombre ),
       cliente_id,
       clientes ( nombre ),
+      zona_id,
+      zonas ( nombre ),
+      tanda,
       observaciones,
       estado,
       created_at,
       updated_at,
-      reparto_cliente_reparto (
-        clientes_reparto (
-          id,
-          nombre_reparto,
-          direccion_reparto,
-          rango_horario,
-          tarifa,
-          telefono_reparto
-        )
-      )
+      detalles_reparto ( count )
     `)
     .order('fecha_reparto', { ascending: false })
     .order('created_at', { ascending: false });
@@ -467,23 +480,31 @@ export async function getRepartos(): Promise<Reparto[]> {
     console.error('Supabase getRepartos error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch repartos.');
   }
-
-  return data.map(reparto => ({
-    id: reparto.id,
-    fecha_reparto: reparto.fecha_reparto,
-    repartidor_id: reparto.repartidor_id,
-    // @ts-ignore
-    repartidor_nombre: reparto.repartidores?.nombre || 'N/A',
-    cliente_id: reparto.cliente_id,
-    // @ts-ignore
-    cliente_principal_nombre: reparto.clientes?.nombre || 'N/A',
-    observaciones: reparto.observaciones,
-    estado: reparto.estado,
-    created_at: reparto.created_at,
-    updated_at: reparto.updated_at,
-    // @ts-ignore
-    clientes_reparto_asignados: reparto.reparto_cliente_reparto.map(r_cr => r_cr.clientes_reparto) || []
-  })) as Reparto[];
+  
+  return data.map(reparto => {
+    // @ts-ignore Supabase types for count might be tricky
+    const itemCount = reparto.detalles_reparto && Array.isArray(reparto.detalles_reparto) && reparto.detalles_reparto.length > 0 ? reparto.detalles_reparto[0].count : 0;
+    return {
+      id: reparto.id,
+      fecha_reparto: reparto.fecha_reparto,
+      repartidor_id: reparto.repartidor_id,
+      // @ts-ignore
+      repartidor_nombre: reparto.repartidores?.nombre || 'N/A',
+      cliente_id: reparto.cliente_id,
+      // @ts-ignore
+      cliente_principal_nombre: reparto.clientes?.nombre || null,
+      zona_id: reparto.zona_id,
+      // @ts-ignore
+      zona_nombre: reparto.zonas?.nombre || 'N/A',
+      tanda: reparto.tanda,
+      observaciones: reparto.observaciones,
+      estado: reparto.estado as DeliveryStatus,
+      created_at: reparto.created_at,
+      updated_at: reparto.updated_at,
+      item_count: itemCount,
+      // detalles_reparto are not fully fetched here for list view, only count
+    }
+  }) as Reparto[];
 }
 
 export async function addRepartoAction(formData: RepartoFormData): Promise<{ success: boolean; reparto?: Reparto; errors?: z.ZodIssue[]; message?: string }> {
@@ -492,18 +513,23 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
     return { success: false, errors: validationResult.error.errors };
   }
 
-  const { fecha_reparto, repartidor_id, cliente_id, selected_clientes_reparto_ids, observaciones, estado } = validationResult.data;
+  const { fecha_reparto, repartidor_id, cliente_id, zona_id, tanda, estado, detalles_reparto, observaciones } = validationResult.data;
 
+  // Convert cliente_id from "___NO_CLIENT_PRINCIPAL___" to null if necessary
+  const finalClienteId = cliente_id === "___NO_CLIENT_PRINCIPAL___" ? null : cliente_id;
+  
   const { data: newReparto, error: insertRepartoError } = await supabase
     .from('repartos')
     .insert({
       fecha_reparto,
       repartidor_id,
-      cliente_id,
+      cliente_id: finalClienteId,
+      zona_id: parseInt(zona_id, 10), // Ensure zona_id is number
+      tanda,
+      estado,
       observaciones: observaciones || null,
-      estado: estado || 'Asignado',
     })
-    .select('id')
+    .select('id, cliente_id, clientes (nombre)') // fetch cliente_nombre for toast
     .single();
 
   if (insertRepartoError || !newReparto) {
@@ -513,36 +539,32 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
   const repartoId = newReparto.id;
 
-  const repartoClienteRepartoEntries = selected_clientes_reparto_ids.map(cliente_reparto_id => ({
-    reparto_id: repartoId,
-    cliente_reparto_id,
-  }));
+  if (detalles_reparto && detalles_reparto.length > 0) {
+    const detallesToInsert = detalles_reparto.map((detalle, index) => ({
+      reparto_id: repartoId,
+      cliente_reparto_id: parseInt(detalle.cliente_reparto_id, 10),
+      valor_entrega: detalle.valor_entrega,
+      detalle_entrega: detalle.detalle_entrega,
+      orden_visita: index,
+    }));
 
-  if (repartoClienteRepartoEntries.length > 0) {
-    const { error: insertRCRError } = await supabase
-      .from('reparto_cliente_reparto')
-      .insert(repartoClienteRepartoEntries);
+    const { error: insertDetallesError } = await supabase
+      .from('detalles_reparto')
+      .insert(detallesToInsert);
 
-    if (insertRCRError) {
-      console.error('Supabase addReparto_ClienteReparto error:', insertRCRError.message);
+    if (insertDetallesError) {
+      console.error('Supabase addDetallesReparto error:', insertDetallesError.message);
       // Consider rolling back the reparto insert or handling partial success
-      return { success: false, message: 'Error al asociar clientes de reparto al reparto.' };
+      // For now, delete the reparto if details fail
+      await supabase.from('repartos').delete().eq('id', repartoId);
+      return { success: false, message: 'Error al asociar ítems de entrega al reparto. Se revirtió la creación del reparto.' };
     }
   }
 
   revalidatePath('/Repartos');
-  // Fetch the full reparto to return it, or construct it as needed
-  const { data: fullReparto, error: fetchFullRepartoError } = await supabase
-    .from('repartos')
-    .select('id, fecha_reparto, repartidor_id, cliente_id, observaciones, estado, created_at, updated_at')
-    .eq('id', repartoId)
-    .single();
-
-  if (fetchFullRepartoError || !fullReparto) {
-     return { success: true, message: 'Reparto creado pero no se pudo recuperar para mostrar.' };
-  }
-
-  return { success: true, reparto: fullReparto as Reparto };
+  // @ts-ignore
+  const clienteNombreParaToast = newReparto.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
+  return { success: true, reparto: { ...newReparto, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
 }
 
 export async function updateRepartoAction(repartoId: number, formData: RepartoFormData): Promise<{ success: boolean; reparto?: Reparto; errors?: z.ZodIssue[]; message?: string }> {
@@ -550,70 +572,78 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
   if (!validationResult.success) {
     return { success: false, errors: validationResult.error.errors };
   }
-
-  const { fecha_reparto, repartidor_id, cliente_id, selected_clientes_reparto_ids, observaciones, estado } = validationResult.data;
+  const { fecha_reparto, repartidor_id, cliente_id, zona_id, tanda, estado, detalles_reparto, observaciones } = validationResult.data;
+  const finalClienteId = cliente_id === "___NO_CLIENT_PRINCIPAL___" ? null : cliente_id;
 
   const { error: updateRepartoError } = await supabase
     .from('repartos')
     .update({
       fecha_reparto,
       repartidor_id,
-      cliente_id,
+      cliente_id: finalClienteId,
+      zona_id: parseInt(zona_id, 10),
+      tanda,
+      estado,
       observaciones: observaciones || null,
-      estado: estado || 'Asignado',
-      updated_at: new Date().toISOString(), // Manually set updated_at
+      updated_at: new Date().toISOString(), 
     })
-    .eq('id', repartoId);
+    .eq('id', repartoId)
+    .select('id, cliente_id, clientes (nombre)') 
+    .single();
 
   if (updateRepartoError) {
     console.error('Supabase updateReparto error:', updateRepartoError.message);
     return { success: false, message: 'Error al actualizar el reparto.' };
   }
 
-  // Update reparto_cliente_reparto associations
-  // 1. Delete existing associations for this reparto
-  const { error: deleteRCRError } = await supabase
-    .from('reparto_cliente_reparto')
+  // Update detalles_reparto: delete existing and insert new ones
+  const { error: deleteDetallesError } = await supabase
+    .from('detalles_reparto')
     .delete()
     .eq('reparto_id', repartoId);
 
-  if (deleteRCRError) {
-    console.error('Supabase delete reparto_cliente_reparto associations error:', deleteRCRError.message);
-    return { success: false, message: 'Error al actualizar las asociaciones de clientes de reparto (paso de eliminación).' };
+  if (deleteDetallesError) {
+    console.error('Supabase delete old detalles_reparto error:', deleteDetallesError.message);
+    return { success: false, message: 'Error al actualizar ítems de entrega (eliminación).' };
   }
 
-  // 2. Insert new associations
-  const repartoClienteRepartoEntries = selected_clientes_reparto_ids.map(cliente_reparto_id => ({
-    reparto_id: repartoId,
-    cliente_reparto_id,
-  }));
+  if (detalles_reparto && detalles_reparto.length > 0) {
+    const detallesToInsert = detalles_reparto.map((detalle, index) => ({
+      reparto_id: repartoId,
+      cliente_reparto_id: parseInt(detalle.cliente_reparto_id, 10),
+      valor_entrega: detalle.valor_entrega,
+      detalle_entrega: detalle.detalle_entrega,
+      orden_visita: index,
+    }));
 
-  if (repartoClienteRepartoEntries.length > 0) {
-    const { error: insertRCRError } = await supabase
-      .from('reparto_cliente_reparto')
-      .insert(repartoClienteRepartoEntries);
+    const { error: insertDetallesError } = await supabase
+      .from('detalles_reparto')
+      .insert(detallesToInsert);
 
-    if (insertRCRError) {
-      console.error('Supabase addReparto_ClienteReparto error (update):', insertRCRError.message);
-      return { success: false, message: 'Error al actualizar las asociaciones de clientes de reparto (paso de inserción).' };
+    if (insertDetallesError) {
+      console.error('Supabase addDetallesReparto (update) error:', insertDetallesError.message);
+      return { success: false, message: 'Error al actualizar ítems de entrega (inserción).' };
     }
   }
   
   revalidatePath('/Repartos');
-  const { data: fullReparto, error: fetchFullRepartoError } = await supabase
+  revalidatePath(`/Repartos/${repartoId}/report`); // Also revalidate report page
+
+  // Fetch the updated reparto name for the toast
+  const { data: updatedRepartoData } = await supabase
     .from('repartos')
-    .select('id, fecha_reparto, repartidor_id, cliente_id, observaciones, estado, created_at, updated_at')
+    .select('id, cliente_id, clientes (nombre)')
     .eq('id', repartoId)
     .single();
   
-  if (fetchFullRepartoError || !fullReparto) {
-     return { success: true, message: 'Reparto actualizado pero no se pudo recuperar para mostrar.' };
-  }
-  return { success: true, reparto: fullReparto as Reparto };
+  // @ts-ignore
+  const clienteNombreParaToast = updatedRepartoData?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
+
+  return { success: true, reparto: { id: repartoId, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
 }
 
 export async function deleteRepartoAction(repartoId: number): Promise<{ success: boolean; message?: string }> {
-  // Associations in reparto_cliente_reparto should be deleted by ON DELETE CASCADE constraint
+  // RLS policies with ON DELETE CASCADE should handle detalles_reparto
   const { error } = await supabase
     .from('repartos')
     .delete()
@@ -628,3 +658,85 @@ export async function deleteRepartoAction(repartoId: number): Promise<{ success:
   return { success: true };
 }
 
+export async function getRepartoByIdForReport(repartoId: number): Promise<{ reparto: Reparto | null; error?: string }> {
+  const { data: repartoData, error: repartoError } = await supabase
+    .from('repartos')
+    .select(`
+      id,
+      fecha_reparto,
+      observaciones,
+      estado,
+      tanda,
+      repartidor_id,
+      repartidores ( nombre ),
+      cliente_id,
+      clientes ( nombre ),
+      zona_id,
+      zonas ( nombre ),
+      detalles_reparto (
+        id,
+        orden_visita,
+        valor_entrega,
+        detalle_entrega,
+        cliente_reparto_id,
+        clientes_reparto (
+          nombre_reparto,
+          direccion_reparto,
+          rango_horario, 
+          telefono_reparto 
+          
+        )
+      )
+    `)
+    .eq('id', repartoId)
+    .order('orden_visita', { referencedTable: 'detalles_reparto', ascending: true })
+    .single();
+
+  if (repartoError) {
+    console.error('Error fetching reparto for report:', repartoError.message);
+    return { reparto: null, error: 'Error al obtener los datos del reparto.' };
+  }
+
+  if (!repartoData) {
+    return { reparto: null, error: 'Reparto no encontrado.' };
+  }
+
+  const reparto: Reparto = {
+    id: repartoData.id,
+    fecha_reparto: repartoData.fecha_reparto,
+    repartidor_id: repartoData.repartidor_id,
+    // @ts-ignore
+    repartidor_nombre: repartoData.repartidores?.nombre,
+    cliente_id: repartoData.cliente_id,
+    // @ts-ignore
+    cliente_principal_nombre: repartoData.clientes?.nombre,
+    zona_id: repartoData.zona_id,
+    // @ts-ignore
+    zona_nombre: repartoData.zonas?.nombre,
+    tanda: repartoData.tanda,
+    observaciones: repartoData.observaciones,
+    estado: repartoData.estado as DeliveryStatus,
+    detalles_reparto: (repartoData.detalles_reparto as any[])?.map(dr => ({
+      id: dr.id,
+      reparto_id: repartoData.id,
+      cliente_reparto_id: dr.cliente_reparto_id,
+      valor_entrega: dr.valor_entrega,
+      detalle_entrega: dr.detalle_entrega,
+      orden_visita: dr.orden_visita,
+      // @ts-ignore
+      cliente_reparto_nombre: dr.clientes_reparto?.nombre_reparto,
+      // @ts-ignore
+      cliente_reparto_direccion: dr.clientes_reparto?.direccion_reparto,
+      // @ts-ignore
+      cliente_reparto_horario_preferido: dr.clientes_reparto?.rango_horario, // Asumiendo rango_horario es el preferido
+      // @ts-ignore
+      cliente_reparto_restricciones: dr.clientes_reparto?.restricciones, // Asumiendo que tienes este campo
+    })),
+    created_at: null, // No se pide en el select del reporte
+    updated_at: null, // No se pide en el select del reporte
+  };
+
+  return { reparto };
+}
+
+    

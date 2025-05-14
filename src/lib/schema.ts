@@ -1,8 +1,10 @@
 
 import { z } from 'zod';
+import type { DeliveryStatus } from '@/types'; // Import DeliveryStatus
+import { ALL_DELIVERY_STATUSES } from '@/types'; // Import ALL_DELIVERY_STATUSES
 
 export const clientSchema = z.object({
-  name: z.string().min(1, "El nombre es requerido").max(100, "El nombre debe tener 100 caracteres o menos"),
+  nombre: z.string().min(1, "El nombre es requerido").max(100, "El nombre debe tener 100 caracteres o menos"),
   direccion: z.string().min(1, "La dirección es requerida").max(200, "La dirección debe tener 200 caracteres o menos"),
   telefono: z.string().max(20, "El teléfono debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
   email: z.string().email({ message: "Email inválido" }).max(100, "El email debe tener 100 caracteres o menos").optional().nullable().or(z.literal('')),
@@ -43,13 +45,48 @@ export const deliveryClientInfoSchema = z.object({
 });
 export type DeliveryClientInfoFormData = z.infer<typeof deliveryClientInfoSchema>;
 
-export const repartoEstados = ["Asignado", "En Curso", "Completado"] as const;
-export const repartoSchema = z.object({
-  fecha_reparto: z.string().min(1, "La fecha de reparto es requerida."), 
-  repartidor_id: z.string().uuid("Debe seleccionar un repartidor."),
-  cliente_id: z.string().uuid("Debe seleccionar un cliente principal."),
-  selected_clientes_reparto_ids: z.array(z.number().int().positive()).min(1, "Debe seleccionar al menos un cliente de reparto para la ruta."),
-  observaciones: z.string().max(500, "Las observaciones no pueden exceder los 500 caracteres.").optional().nullable().or(z.literal('')),
-  estado: z.enum(repartoEstados, { errorMap: () => ({ message: "Estado de reparto inválido." })}),
+// Para el formulario de ítems de entrega dentro del formulario de Reparto
+export const detalleRepartoFormSchema = z.object({
+  cliente_reparto_id: z.string().min(1, "Debe seleccionar un cliente de reparto."), // ID de clientes_reparto
+  valor_entrega: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? null : parseFloat(String(val))),
+    z.number({ invalid_type_error: "El valor debe ser un número." }).min(0, "El valor no puede ser negativo.").optional().nullable()
+  ),
+  detalle_entrega: z.string().max(500, "El detalle no puede exceder los 500 caracteres.").optional().nullable().or(z.literal('')),
 });
-// El tipo RepartoFormData se define en src/types/index.ts
+export type DetalleRepartoFormData = z.infer<typeof detalleRepartoFormSchema>;
+
+// Esquema principal para el formulario de Reparto
+export const repartoSchema = z.object({
+  fecha_reparto: z.string().min(1, "La fecha de reparto es requerida."),
+  repartidor_id: z.string().uuid("Debe seleccionar un repartidor válido."),
+  cliente_id: z.string().uuid("Debe seleccionar un cliente principal válido.").nullable(), // Puede ser null para "Reparto General"
+  zona_id: z.string().min(1,"Debe seleccionar una zona válida."), // Asumiendo que ID es string, ajustar si es number
+  tanda: z.preprocess(
+    (val) => parseInt(String(val), 10),
+    z.number().int().min(1, "La tanda debe ser al menos 1.")
+  ),
+  estado: z.enum(ALL_DELIVERY_STATUSES, { errorMap: () => ({ message: "Estado de reparto inválido." }) }),
+  observaciones: z.string().max(500, "Las observaciones no pueden exceder los 500 caracteres.").optional().nullable().or(z.literal('')),
+  detalles_reparto: z.array(detalleRepartoFormSchema).default([]),
+}).refine(data => {
+  if (data.cliente_id && data.detalles_reparto.length === 0) {
+    return false; // Si hay un cliente principal, debe haber al menos un ítem de entrega.
+  }
+  return true;
+}, {
+  message: "Si selecciona un Cliente Principal, debe agregar al menos un Ítem de Entrega.",
+  path: ["detalles_reparto"], // Apunta al campo del array para el mensaje de error
+});
+
+export type RepartoFormData = z.infer<typeof repartoSchema>;
+
+
+// Mantener los estados de reparto que ya tenías si son diferentes a ALL_DELIVERY_STATUSES
+export const repartoEstadosOriginales = ["Asignado", "En Curso", "Completado"] as const;
+
+// Nota: Si 'repartoEstadosOriginales' y 'ALL_DELIVERY_STATUSES' deben ser lo mismo,
+// puedes eliminar uno y usar el otro consistentemente.
+// Por ahora, `ALL_DELIVERY_STATUSES` es el que usa el nuevo `repartoSchema`.
+
+    

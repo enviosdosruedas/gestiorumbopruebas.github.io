@@ -6,26 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge"; // Import badgeVariants
 import { useToast } from '@/hooks/use-toast';
 import { deleteRepartoAction } from '@/app/actions';
-import { Edit3, Trash2, PackageSearch, Loader2, CalendarDays, User, Users, Info, MapPinned } from 'lucide-react';
+import { Edit3, Trash2, PackageSearch, Loader2, CalendarDays, User, Users, Info, Map, Clock4, FileText, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Link from 'next/link';
 
-const ClientSideFormattedDate = ({ dateString, formatString = 'dd/MM/yyyy' }: { dateString?: string | null, formatString?: string }) => {
+const ClientSideFormattedDate = ({ dateString, formatString = 'PPP' }: { dateString?: string | null, formatString?: string }) => {
   const [displayText, setDisplayText] = useState<string>('...');
   useEffect(() => {
     if (dateString) {
       try {
-        // Asegurarse que la fecha se parsea correctamente como ISO si viene de la BD (DATE o TIMESTAMPTZ)
         const date = parseISO(dateString); 
         setDisplayText(format(date, formatString, { locale: es }));
       } catch (error) {
-        // Si falla parseISO (ej. si ya está en formato DD/MM/YYYY), intenta usarla directamente
         try {
-            const directDate = new Date(dateString.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3')); // MM/DD/YYYY for Date constructor
+            const directDate = new Date(dateString.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3')); 
             setDisplayText(format(directDate, formatString, { locale: es }));
         } catch (innerError) {
             console.error("Error formatting date:", innerError);
@@ -79,14 +78,18 @@ export default function RepartoList({ repartos, onEdit, onDeleteSuccess, isLoadi
     }
   };
 
-  const getStatusVariant = (status: string | null): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case "Completado":
-        return "default"; // Primary color (green in this theme)
-      case "En Curso":
-        return "secondary"; // Yellow-ish or distinct color
-      case "Asignado":
-        return "outline"; // Blue-ish or another distinct color
+  const getStatusVariant = (status: string | null): VariantProps<typeof badgeVariants>["variant"] => {
+    switch (status?.toLowerCase()) {
+      case "pendiente":
+        return "pendiente";
+      case "en curso":
+        return "en-curso";
+      case "entregado":
+        return "entregado";
+      case "cancelado":
+        return "cancelado";
+      case "reprogramado":
+        return "reprogramado";
       default:
         return "outline";
     }
@@ -113,67 +116,80 @@ export default function RepartoList({ repartos, onEdit, onDeleteSuccess, isLoadi
           </div>
         )}
         {!isListLoading && repartos.length > 0 && (
-          <Table>
-            <TableCaption>Lista de todos los repartos programados y completados.</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead><CalendarDays className="inline-block mr-1 h-4 w-4"/>Fecha</TableHead>
-                <TableHead><User className="inline-block mr-1 h-4 w-4"/>Repartidor</TableHead>
-                <TableHead><Users className="inline-block mr-1 h-4 w-4"/>Cliente Principal</TableHead>
-                <TableHead><MapPinned className="inline-block mr-1 h-4 w-4"/>Entregas</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead><Info className="inline-block mr-1 h-4 w-4"/>Obs.</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {repartos.map((reparto) => (
-                <TableRow key={reparto.id}>
-                  <TableCell>
-                    <ClientSideFormattedDate dateString={reparto.fecha_reparto} />
-                  </TableCell>
-                  <TableCell>{reparto.repartidor_nombre || 'N/A'}</TableCell>
-                  <TableCell>{reparto.cliente_principal_nombre || 'N/A'}</TableCell>
-                  <TableCell>{reparto.clientes_reparto_asignados?.length || 0}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(reparto.estado)}>{reparto.estado || 'N/A'}</Badge>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate" title={reparto.observaciones || undefined}>
-                    {reparto.observaciones || 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => onEdit(reparto)} disabled={deletingId === reparto.id}>
-                      <Edit3 className="mr-1 h-4 w-4" />Editar
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={deletingId === reparto.id}>
-                          {deletingId === reparto.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                          Eliminar
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Esto eliminará permanentemente el reparto del <ClientSideFormattedDate dateString={reparto.fecha_reparto} /> para el cliente {reparto.cliente_principal_nombre}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(reparto.id)} className="bg-destructive hover:bg-destructive/90">
-                            Sí, eliminar reparto
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableCaption>Lista de todos los repartos programados y completados.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><CalendarDays className="inline-block mr-1 h-4 w-4"/>Fecha</TableHead>
+                  <TableHead><User className="inline-block mr-1 h-4 w-4"/>Repartidor</TableHead>
+                  <TableHead><Users className="inline-block mr-1 h-4 w-4"/>Cliente Principal</TableHead>
+                  <TableHead><Map className="inline-block mr-1 h-4 w-4"/>Zona</TableHead>
+                  <TableHead><Clock4 className="inline-block mr-1 h-4 w-4"/>Tanda</TableHead>
+                  <TableHead><ListChecks className="inline-block mr-1 h-4 w-4"/>N° Items</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead><Info className="inline-block mr-1 h-4 w-4"/>Obs.</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {repartos.map((reparto) => (
+                  <TableRow key={reparto.id}>
+                    <TableCell>
+                      <ClientSideFormattedDate dateString={reparto.fecha_reparto} formatString="PPP"/>
+                    </TableCell>
+                    <TableCell>{reparto.repartidor_nombre || 'N/A'}</TableCell>
+                    <TableCell>{reparto.cliente_principal_nombre || 'Reparto General'}</TableCell>
+                    <TableCell>{reparto.zona_nombre || 'N/A'}</TableCell>
+                    <TableCell>{reparto.tanda || 'N/A'}</TableCell>
+                    <TableCell>{reparto.item_count ?? (reparto.detalles_reparto?.length || 0)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(reparto.estado)}>{reparto.estado || 'N/A'}</Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={reparto.observaciones || undefined}>
+                      {reparto.observaciones || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right space-x-1 md:space-x-2">
+                       <Link href={`/Repartos/${reparto.id}/report`} passHref>
+                        <Button variant="outline" size="sm" title="Ver Reporte">
+                           <Eye className="h-4 w-4 md:mr-1" /> <span className="hidden md:inline">Reporte</span>
+                        </Button>
+                      </Link>
+                      <Button variant="outline" size="sm" onClick={() => onEdit(reparto)} disabled={deletingId === reparto.id} title="Editar Reparto">
+                        <Edit3 className="h-4 w-4 md:mr-1" /> <span className="hidden md:inline">Editar</span>
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={deletingId === reparto.id} title="Eliminar Reparto">
+                            {deletingId === reparto.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 md:mr-1" />}
+                            <span className="hidden md:inline">Eliminar</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. Esto eliminará permanentemente el reparto del <ClientSideFormattedDate dateString={reparto.fecha_reparto} formatString="PPP" /> para el cliente {reparto.cliente_principal_nombre || 'General'}.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(reparto.id)} className="bg-destructive hover:bg-destructive/90">
+                              Sí, eliminar reparto
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
+
+    

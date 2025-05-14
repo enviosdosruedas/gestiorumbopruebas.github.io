@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Reparto, Client, DeliveryPerson, DeliveryClientInfo } from '@/types';
+import type { Reparto, Client, DeliveryPerson, Zona } from '@/types';
 import { useState, useEffect, useCallback } from 'react';
 import RepartoForm from './RepartoForm';
 import RepartoList from './RepartoList';
@@ -15,14 +15,14 @@ interface RepartosManagementProps {
   initialRepartos: Reparto[];
   allClientes: Client[];
   allRepartidores: DeliveryPerson[];
-  allDeliveryClientInfos: DeliveryClientInfo[]; // Usado para popular el selector en el formulario
+  allZonas: Zona[]; // Added allZonas
 }
 
 export default function RepartosManagement({
   initialRepartos,
   allClientes,
   allRepartidores,
-  allDeliveryClientInfos
+  allZonas // Destructure allZonas
 }: RepartosManagementProps) {
   const [repartos, setRepartos] = useState<Reparto[]>(initialRepartos);
   const [editingReparto, setEditingReparto] = useState<Reparto | null>(null);
@@ -79,7 +79,7 @@ export default function RepartosManagement({
           </CardTitle>
           <CardDescription className="text-base text-muted-foreground">
             Cree, asigne y administre los repartos. Seleccione un repartidor, un cliente principal,
-            y luego los puntos de entrega específicos para ese cliente.
+            zona, tanda y luego los puntos de entrega específicos para ese cliente.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -89,7 +89,7 @@ export default function RepartosManagement({
         initialData={editingReparto}
         allClientes={allClientes}
         allRepartidores={allRepartidores}
-        // allDeliveryClientInfos se pasará para ser filtrado dentro del form
+        allZonas={allZonas} // Pass allZonas
         onSuccess={handleFormSuccess}
         onCancel={editingReparto ? handleCancelEdit : undefined}
       />
@@ -103,3 +103,5 @@ export default function RepartosManagement({
     </div>
   );
 }
+
+    

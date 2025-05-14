@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -54,6 +55,13 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Custom colors for delivery status badges */
+    --mikado-yellow: 45 100% 51%; /* Approx #FFC107 */
+    --polynesian-blue: 207 66% 44%; /* Approx #2A7AB0 - Adjusted from a generic blue */
+    --custom-green: 139.6 60.7% 40.2%; /* Using accent green #28A745 */
+    --custom-red: 0 72% 51%; /* Approx #DC3545 */
+    --custom-purple: 268 60% 50%; /* Approx #8349B8 - Adjusted from a generic purple */
   }
 
   .dark {
@@ -101,6 +109,13 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Custom colors for delivery status badges - Dark Mode (adjust as needed) */
+    --mikado-yellow: 45 100% 61%; /* Lighter yellow */
+    --polynesian-blue: 207 66% 54%; /* Lighter blue */
+    --custom-green: 139.6 60.7% 50.2%; /* Using accent green */
+    --custom-red: 0 72% 61%; /* Lighter red */
+    --custom-purple: 268 60% 60%; /* Lighter purple */
   }
 }
 
@@ -112,3 +127,112 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    background-color: #fff; /* Ensure white background for printing */
+    color: #000;
+  }
+  header, footer, .no-print, .print-hide, nav, aside { /* Common classes to hide */
+    display: none !important;
+  }
+  main {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .print-container { /* A wrapper you might add around printable content */
+    width: 100%;
+    margin: 0;
+    padding: 1cm; /* Standard A4 margin */
+    box-sizing: border-box;
+  }
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1cm;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5cm;
+  }
+  .print-logo {
+    max-width: 150px; /* Adjust as needed */
+    max-height: 50px; /* Adjust as needed */
+  }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 4px 6px !important;
+    text-align: left !important;
+  }
+  thead {
+    display: table-header-group; /* Repeat headers on each page */
+  }
+  .print-show {
+    display: block !important; /* Elements to show only on print */
+  }
+  a[href]:after {
+    content: none !important; /* Don't show URLs */
+  }
+  .badge-print { /* Specific class for badges if needed for print */
+    border: 1px solid #ccc !important;
+    background-color: #fff !important;
+    color: #000 !important;
+    padding: 2px 4px !important;
+    font-size: 0.8em !important;
+  }
+  /* Ensure ShadCN components are print-friendly or hidden */
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .button, button, [role="button"] {
+    display: none !important; /* Hide buttons by default */
+  }
+  .print-button-show {
+    display: inline-block !important; /* Except specific print buttons */
+  }
+  .alert-dialog-overlay, .alert-dialog-content {
+    display: none !important;
+  }
+  .popover-content, .tooltip-content {
+    display: none !important;
+  }
+  /* Tailwind utilities might need overrides if !important is used by them */
+  .bg-background { background-color: #fff !important; }
+  .text-foreground { color: #000 !important; }
+}
+
+/* Extending tailwind.config.ts for custom HSL colors */
+@layer base {
+  :root {
+    /* ... other variables ... */
+    --mikado-yellow: 45 100% 51%; /* Approx #FFC107 */
+    --polynesian-blue: 207 66% 44%; 
+    --custom-green: 139.6 60.7% 40.2%; 
+    --custom-red: 0 72% 51%; 
+    --custom-purple: 268 60% 50%; 
+  }
+  .dark {
+    /* ... other dark variables ... */
+    --mikado-yellow: 45 100% 61%; 
+    --polynesian-blue: 207 66% 54%; 
+    --custom-green: 139.6 60.7% 50.2%; 
+    --custom-red: 0 72% 61%; 
+    --custom-purple: 268 60% 60%; 
+  }
+}
+
+    

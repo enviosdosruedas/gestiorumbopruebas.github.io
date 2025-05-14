@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -59,7 +60,13 @@ export default {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
-  			}
+  			},
+        // Custom colors for delivery status badges
+        'mikado-yellow': 'hsl(var(--mikado-yellow))',
+        'polynesian-blue': 'hsl(var(--polynesian-blue))',
+        'custom-green': 'hsl(var(--custom-green))',
+        'custom-red': 'hsl(var(--custom-red))',
+        'custom-purple': 'hsl(var(--custom-purple))',
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -92,3 +99,5 @@ export default {
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
+
+    

@@ -1,6 +1,6 @@
 
 import type { Metadata } from 'next';
-import { getRepartos, getClients, getRepartidores, getDeliveryClientInfos } from '@/app/actions';
+import { getRepartos, getClients, getRepartidores, getZonas } from '@/app/actions'; // Added getZonas
 import RepartosManagement from '@/components/repartos/RepartosManagement';
 
 export const dynamic = 'force-dynamic';
@@ -14,14 +14,20 @@ export default async function RepartosPage() {
   const repartos = await getRepartos();
   const clientes = await getClients();
   const repartidores = await getRepartidores();
-  const allDeliveryClientInfos = await getDeliveryClientInfos(); // Para el formulario
+  const zonas = await getZonas(); // Fetch zonas
+
+  // Note: allDeliveryClientInfos was previously fetched here.
+  // It's now fetched dynamically within RepartoForm based on the selected cliente_id.
+  // If you need a pre-cached list for some other purpose, you can fetch it here.
 
   return (
     <RepartosManagement
       initialRepartos={repartos}
       allClientes={clientes}
       allRepartidores={repartidores}
-      allDeliveryClientInfos={allDeliveryClientInfos}
+      allZonas={zonas} // Pass zonas
     />
   );
 }
+
+    
