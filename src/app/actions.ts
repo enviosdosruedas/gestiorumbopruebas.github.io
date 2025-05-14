@@ -22,7 +22,11 @@ export async function getClients(): Promise<Client[]> {
   }
   return data.map(client => ({
     ...client,
-    direccion: client.direccion ?? null // Ensure direccion is null if undefined from DB
+    direccion: client.direccion ?? null,
+    telefono: client.telefono ?? null,
+    email: client.email ?? null,
+    created_at: client.created_at ?? null,
+    updated_at: client.updated_at ?? null,
   })) as Client[];
 }
 
@@ -62,10 +66,22 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     return { success: false, message: specificMessage, addressValidation: validatedAddressInfo };
   }
 
+  if (!newClientRecord) {
+    console.error('Supabase addClient error: No client data returned after insert.');
+    return { success: false, message: 'No se pudo obtener la información del cliente después de agregarlo.', addressValidation: validatedAddressInfo };
+  }
+
   revalidatePath('/Clientes');
   return { 
     success: true, 
-    client: newClientRecord as Client,
+    client: {
+      ...newClientRecord,
+      direccion: newClientRecord.direccion ?? null,
+      telefono: newClientRecord.telefono ?? null,
+      email: newClientRecord.email ?? null,
+      created_at: newClientRecord.created_at ?? null,
+      updated_at: newClientRecord.updated_at ?? null,
+    } as Client,
     addressValidation: validatedAddressInfo
   };
 }
@@ -119,10 +135,22 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     return { success: false, message: specificMessage, addressValidation: validatedAddressInfo };
   }
   
+  if (!updatedClientRecord) {
+    console.error('Supabase updateClient error: No client data returned after update.');
+    return { success: false, message: 'No se pudo obtener la información del cliente después de actualizarlo.', addressValidation: validatedAddressInfo };
+  }
+
   revalidatePath('/Clientes');
   return { 
     success: true, 
-    client: updatedClientRecord as Client,
+    client: {
+      ...updatedClientRecord,
+      direccion: updatedClientRecord.direccion ?? null,
+      telefono: updatedClientRecord.telefono ?? null,
+      email: updatedClientRecord.email ?? null,
+      created_at: updatedClientRecord.created_at ?? null,
+      updated_at: updatedClientRecord.updated_at ?? null,
+    } as Client,
     addressValidation: validatedAddressInfo
   };
 }
@@ -155,7 +183,11 @@ export async function getRepartidores(): Promise<DeliveryPerson[]> {
     console.error('Supabase getRepartidores error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch repartidores.');
   }
-  return data as DeliveryPerson[];
+  return data.map(rp => ({
+    ...rp,
+    created_at: rp.created_at ?? null,
+    updated_at: rp.updated_at ?? null,
+  })) as DeliveryPerson[];
 }
 
 export async function addRepartidorAction(formData: RepartidorFormData): Promise<{ success: boolean; deliveryPerson?: DeliveryPerson; errors?: z.ZodIssue[]; message?: string }> {
@@ -190,10 +222,19 @@ export async function addRepartidorAction(formData: RepartidorFormData): Promise
     return { success: false, message };
   }
 
+  if (!newRecord) {
+    console.error('Supabase addRepartidor error: No data returned after insert.');
+    return { success: false, message: 'No se pudo obtener la información del repartidor después de agregarlo.' };
+  }
+
   revalidatePath('/Repartidores');
   return { 
     success: true, 
-    deliveryPerson: newRecord as DeliveryPerson
+    deliveryPerson: {
+        ...newRecord,
+        created_at: newRecord.created_at ?? null,
+        updated_at: newRecord.updated_at ?? null,
+    } as DeliveryPerson
   };
 }
 
@@ -242,10 +283,19 @@ export async function updateRepartidorAction(id: string, formData: RepartidorFor
     return { success: false, message };
   }
   
+  if (!updatedRecord) {
+    console.error('Supabase updateRepartidor error: No data returned after update.');
+    return { success: false, message: 'No se pudo obtener la información del repartidor después de actualizarlo.' };
+  }
+  
   revalidatePath('/Repartidores');
   return { 
     success: true, 
-    deliveryPerson: updatedRecord as DeliveryPerson
+    deliveryPerson: {
+        ...updatedRecord,
+        created_at: updatedRecord.created_at ?? null,
+        updated_at: updatedRecord.updated_at ?? null,
+    } as DeliveryPerson
   };
 }
 
@@ -293,6 +343,8 @@ export async function getDeliveryClientInfos(): Promise<DeliveryClientInfo[]> {
     // @ts-ignore Supabase types might not be perfect for nested selects initially
     cliente_nombre: item.clientes?.nombre || 'Cliente Desconocido', 
     tarifa: item.tarifa === null || item.tarifa === undefined ? null : Number(item.tarifa),
+    created_at: item.created_at ?? null,
+    updated_at: item.updated_at ?? null,
   })) as DeliveryClientInfo[];
 }
 
@@ -311,11 +363,12 @@ export async function getDeliveryClientInfosByClientId(clienteId: string): Promi
   return data.map(item => ({
     ...item,
     tarifa: item.tarifa === null || item.tarifa === undefined ? null : Number(item.tarifa),
-    // Include other fields needed by MobileDashboardTask if they exist on clientes_reparto
     cliente_reparto_nombre: item.nombre_reparto,
     cliente_reparto_direccion: item.direccion_reparto,
     cliente_reparto_horario_preferido: item.rango_horario,
     cliente_reparto_telefono: item.telefono_reparto,
+    created_at: item.created_at ?? null,
+    updated_at: item.updated_at ?? null,
   })) as DeliveryClientInfo[];
 }
 
@@ -345,7 +398,7 @@ export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFo
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
     rango_horario: rango_horario_final,
-    tarifa: tarifa === undefined ? null : tarifa,
+    tarifa: tarifa === undefined || tarifa === null ? null : tarifa,
     telefono_reparto: telefono_reparto || null,
   };
 
@@ -360,6 +413,11 @@ export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFo
     const specificMessage = insertError.message ? `Error de base de datos: ${insertError.message}` : 'Error al agregar información de cliente de reparto.';
     return { success: false, message: specificMessage };
   }
+
+  if (!newRecord) {
+    console.error('Supabase addDeliveryClientInfo error: No data returned after insert.');
+    return { success: false, message: 'No se pudo obtener la información del cliente de reparto después de agregarla.' };
+  }
   
   revalidatePath('/ClientesReparto');
   return { 
@@ -367,6 +425,8 @@ export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFo
     deliveryClientInfo: {
         ...newRecord,
         tarifa: newRecord.tarifa === null || newRecord.tarifa === undefined ? null : Number(newRecord.tarifa),
+        created_at: newRecord.created_at ?? null,
+        updated_at: newRecord.updated_at ?? null,
     } as DeliveryClientInfo
   };
 }
@@ -397,7 +457,7 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     nombre_reparto,
     direccion_reparto: direccion_reparto || null,
     rango_horario: rango_horario_final,
-    tarifa: tarifa === undefined ? null : tarifa,
+    tarifa: tarifa === undefined || tarifa === null ? null : tarifa,
     telefono_reparto: telefono_reparto || null,
     updated_at: new Date().toISOString(),
   };
@@ -414,6 +474,11 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     const specificMessage = updateError.message ? `Error de base de datos: ${updateError.message}` : 'Error al actualizar información de cliente de reparto.';
     return { success: false, message: specificMessage };
   }
+
+  if (!updatedRecord) {
+    console.error('Supabase updateDeliveryClientInfo error: No data returned after update.');
+    return { success: false, message: 'No se pudo obtener la información del cliente de reparto después de actualizarla.' };
+  }
   
   revalidatePath('/ClientesReparto');
   return { 
@@ -421,6 +486,8 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
     deliveryClientInfo: {
         ...updatedRecord,
         tarifa: updatedRecord.tarifa === null || updatedRecord.tarifa === undefined ? null : Number(updatedRecord.tarifa),
+        created_at: updatedRecord.created_at ?? null,
+        updated_at: updatedRecord.updated_at ?? null,
     } as DeliveryClientInfo
   };
 }
@@ -445,14 +512,18 @@ export async function deleteDeliveryClientInfoAction(id: number): Promise<{ succ
 export async function getZonas(): Promise<Zona[]> {
   const { data, error } = await supabase
     .from('zonas')
-    .select('id, nombre')
+    .select('id, nombre, created_at, updated_at')
     .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Supabase getZonas error:', error.message || JSON.stringify(error));
     return []; 
   }
-  return data as Zona[];
+  return data.map(z => ({
+    ...z,
+    created_at: z.created_at ?? null,
+    updated_at: z.updated_at ?? null,
+  })) as Zona[];
 }
 
 
@@ -498,8 +569,8 @@ export async function getRepartos(): Promise<Reparto[]> {
       tanda: reparto.tanda,
       observaciones: reparto.observaciones,
       estado: reparto.estado as RepartoStatus,
-      created_at: reparto.created_at,
-      updated_at: reparto.updated_at,
+      created_at: reparto.created_at ?? null,
+      updated_at: reparto.updated_at ?? null,
       item_count: itemCount,
     }
   }) as Reparto[];
@@ -526,7 +597,7 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
       estado,
       observaciones: observaciones || null,
     })
-    .select('id, cliente_id, clientes (nombre)') 
+    .select('id, cliente_id, clientes (nombre), created_at, updated_at') 
     .single();
 
   if (insertRepartoError || !newReparto) {
@@ -561,7 +632,15 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
   revalidatePath('/Repartos');
   const clienteNombreParaToast = (newReparto.clientes as any)?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
-  return { success: true, reparto: { ...newReparto, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
+  return { 
+    success: true, 
+    reparto: { 
+      ...newReparto, 
+      cliente_principal_nombre: clienteNombreParaToast,
+      created_at: newReparto.created_at ?? null,
+      updated_at: newReparto.updated_at ?? null,
+    } as Reparto 
+  };
 }
 
 export async function updateRepartoAction(repartoId: number, formData: RepartoFormData): Promise<{ success: boolean; reparto?: Reparto; errors?: z.ZodIssue[]; message?: string }> {
@@ -585,7 +664,7 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
       updated_at: new Date().toISOString(), 
     })
     .eq('id', repartoId)
-    .select('id, cliente_id, clientes (nombre)') 
+    .select('id, cliente_id, clientes (nombre), created_at, updated_at') 
     .single();
 
   if (updateRepartoError) {
@@ -631,7 +710,15 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
   
   const clienteNombreParaToast = (updatedRepartoDataFromDB as any)?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
 
-  return { success: true, reparto: { id: repartoId, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
+  return { 
+    success: true, 
+    reparto: { 
+      id: repartoId, 
+      cliente_principal_nombre: clienteNombreParaToast,
+      created_at: updatedRepartoDataFromDB?.created_at ?? null,
+      updated_at: updatedRepartoDataFromDB?.updated_at ?? null,
+    } as Reparto 
+  };
 }
 
 export async function deleteRepartoAction(repartoId: number): Promise<{ success: boolean; message?: string }> {
@@ -665,6 +752,8 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
       clientes ( nombre ),
       zona_id,
       zonas ( nombre ),
+      created_at, 
+      updated_at,
       detalles_reparto (
         id,
         orden_visita,
@@ -672,6 +761,8 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
         detalle_entrega,
         estado_entrega,
         cliente_reparto_id,
+        created_at,
+        updated_at,
         clientes_reparto (
           nombre_reparto,
           direccion_reparto,
@@ -705,6 +796,8 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
     tanda: repartoData.tanda,
     observaciones: repartoData.observaciones,
     estado: repartoData.estado as RepartoStatus,
+    created_at: repartoData.created_at ?? null, 
+    updated_at: repartoData.updated_at ?? null, 
     detalles_reparto: (repartoData.detalles_reparto as any[])?.map(dr => ({
       id: dr.id,
       reparto_id: repartoData.id,
@@ -717,9 +810,9 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
       cliente_reparto_direccion: (dr.clientes_reparto as any)?.direccion_reparto,
       cliente_reparto_horario_preferido: (dr.clientes_reparto as any)?.rango_horario, 
       cliente_reparto_telefono: (dr.clientes_reparto as any)?.telefono_reparto,
+      created_at: dr.created_at ?? null,
+      updated_at: dr.updated_at ?? null,
     })),
-    created_at: null, 
-    updated_at: null, 
   };
 
   return { reparto };
@@ -746,8 +839,6 @@ export async function getDriverDashboardTasks(driverId: string): Promise<{
   completed: MobileDashboardTask[];
 }> {
   const today = new Date();
-  // const startDate = format(startOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"); // Not used directly in query
-  // const endDate = format(endOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"); // Not used directly in query
 
   const { data: repartosHoy, error: repartosError } = await supabase
     .from('repartos')
@@ -779,19 +870,19 @@ export async function getDriverDashboardTasks(driverId: string): Promise<{
   repartosHoy.forEach(reparto => {
     (reparto.detalles_reparto as any[])?.forEach(detalle => {
       allTasks.push({
-        ...detalle, // This already includes id, reparto_id, cliente_reparto_id, estado_entrega etc.
-        reparto_fecha: reparto.fecha_reparto, // Add parent reparto info
+        ...detalle, 
+        reparto_fecha: reparto.fecha_reparto, 
         reparto_observaciones: reparto.observaciones,
-        // Enrich with clientes_reparto data (already nested from Supabase query)
         cliente_reparto_nombre: (detalle.clientes_reparto as any)?.nombre_reparto,
         cliente_reparto_direccion: (detalle.clientes_reparto as any)?.direccion_reparto,
         cliente_reparto_horario_preferido: (detalle.clientes_reparto as any)?.rango_horario,
         cliente_reparto_telefono: (detalle.clientes_reparto as any)?.telefono_reparto,
+        created_at: detalle.created_at ?? null,
+        updated_at: detalle.updated_at ?? null,
       });
     });
   });
   
-
   return {
     inProgress: allTasks.filter(task => task.estado_entrega === 'en_camino'),
     assigned: allTasks.filter(task => task.estado_entrega === 'pendiente'),
@@ -822,7 +913,6 @@ export async function updateDetalleRepartoStatusAction(detalleRepartoId: number,
     return { success: false, message: specificMessage };
   }
   
-  // Enrich the returned task with parent reparto info for consistency
   const enrichedTask: MobileDashboardTask = {
     ...data,
     cliente_reparto_nombre: (data.clientes_reparto as any)?.nombre_reparto,
@@ -831,10 +921,13 @@ export async function updateDetalleRepartoStatusAction(detalleRepartoId: number,
     cliente_reparto_telefono: (data.clientes_reparto as any)?.telefono_reparto,
     reparto_fecha: (data.repartos as any)?.fecha_reparto,
     reparto_observaciones: (data.repartos as any)?.observaciones,
+    created_at: data.created_at ?? null,
+    updated_at: data.updated_at ?? null,
   };
 
-
   revalidatePath('/mobile-dashboard'); 
+  revalidatePath('/Repartos'); // Also revalidate main repartos list
+  revalidatePath(`/Repartos/${data.reparto_id}/report`); // And the report for this specific reparto
   return { success: true, updatedTask: enrichedTask };
 }
 

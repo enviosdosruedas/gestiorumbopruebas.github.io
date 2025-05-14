@@ -30,7 +30,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      name: initialClientData?.nombre || '',
+      nombre: initialClientData?.nombre || '',
       direccion: initialClientData?.direccion || '',
       telefono: initialClientData?.telefono || '',
       email: initialClientData?.email || '',
@@ -40,15 +40,15 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
   useEffect(() => {
     if (initialClientData) {
       form.reset({
-        name: initialClientData.nombre,
+        nombre: initialClientData.nombre,
         direccion: initialClientData.direccion || '',
         telefono: initialClientData.telefono || '',
         email: initialClientData.email || '',
       });
     } else {
-      form.reset({ name: '', direccion: '', telefono: '', email: '' });
+      form.reset({ nombre: '', direccion: '', telefono: '', email: '' });
     }
-    setAddressValidationUIMessage(null); // Clear UI message on form reset
+    setAddressValidationUIMessage(null); 
   }, [initialClientData, form]);
   
   const handleAddressValidated = (isValid: boolean, validatedAddress?: string) => {
@@ -75,7 +75,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
           variant: 'default',
         });
         onSuccess();
-        form.reset({ name: '', direccion: '', telefono: '', email: '' }); 
+        form.reset({ nombre: '', direccion: '', telefono: '', email: '' }); 
       } else {
         if (result.errors) {
           result.errors.forEach(err => {
@@ -84,22 +84,22 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
         }
         toast({
           title: 'Error',
-          description: result.message || `Error al ${initialClientData ? 'actualizar' : 'agregar'} cliente. Por favor revise el formulario.`,
+          description: result.message || `Error al ${initialClientData ? 'actualizar' : 'agregar'} cliente. Verifique los datos o inténtelo más tarde.`,
           variant: 'destructive',
         });
-        // Show address validation feedback from AI if available and not successful
+        
         if (result.addressValidation) {
             if (result.addressValidation.isValid) {
-                 setAddressValidationUIMessage(`Dirección validada por IA: ${result.addressValidation.validatedAddress || data.direccion}`);
+                 setAddressValidationUIMessage(`IA validó la dirección: ${result.addressValidation.suggestions?.[0] || data.direccion}`);
             } else {
-                 setAddressValidationUIMessage(`IA sugiere: ${result.addressValidation.suggestions?.join(', ') || 'Dirección no válida en Mar del Plata.'}`);
+                 setAddressValidationUIMessage(`IA sugiere: ${result.addressValidation.suggestions?.join(', ') || 'Dirección podría no ser válida o no estar en Mar del Plata.'}`);
             }
         }
       }
     } catch (error) {
       console.error('Error en envío de formulario:', error);
       toast({
-        title: 'Error',
+        title: 'Error Inesperado',
         description: `Ocurrió un error inesperado. Por favor intente de nuevo.`,
         variant: 'destructive',
       });
@@ -124,7 +124,7 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="name"
+              name="nombre"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nombre</FormLabel>
@@ -143,13 +143,14 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
                   <FormLabel>Dirección</FormLabel>
                   <FormControl>
                     <AddressAutocompleteInput
-                      {...field}
+                      value={field.value || ''} // Ensure value is not null for AddressAutocompleteInput
+                      onChange={field.onChange}
                       onAddressValidated={handleAddressValidated}
                       className="w-full"
                     />
                   </FormControl>
                   {addressValidationUIMessage && (
-                    <p className={`text-sm mt-1 ${addressValidationUIMessage.startsWith("Dirección parece válida") || addressValidationUIMessage.startsWith("Dirección validada por IA") ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-sm mt-1 ${addressValidationUIMessage.startsWith("Dirección parece válida") || addressValidationUIMessage.startsWith("IA validó la dirección") ? 'text-green-600' : 'text-red-600'}`}>
                       {addressValidationUIMessage}
                     </p>
                   )}
@@ -204,3 +205,4 @@ export default function ClientForm({ initialClientData, onSuccess, onCancel }: C
     </Card>
   );
 }
+
