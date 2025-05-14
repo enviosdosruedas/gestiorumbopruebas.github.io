@@ -1,26 +1,66 @@
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+
 import type { Metadata } from 'next';
+import { HeroSection } from '@/components/inicio/HeroSection';
+import { ActionCard } from '@/components/inicio/ActionCard';
+import { Users, Truck, ClipboardList, PackagePlus } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Bienvenido a Rumbo Envios',
-  description: 'Página de inicio de Rumbo Envios Client Management',
+  title: 'Panel de Control - Rumbo Envios',
+  description: 'Panel de control principal para la gestión de Rumbo Envios.',
 };
+
+const actions = [
+  {
+    icon: Users,
+    title: 'Gestionar Clientes',
+    description: 'Administre su base de datos de clientes, actualice información y realice seguimientos.',
+    href: '/Clientes',
+    actionText: 'Ver Clientes',
+  },
+  {
+    icon: Truck,
+    title: 'Gestionar Repartidores',
+    description: 'Organice su equipo de repartidores, asigne vehículos y supervise sus zonas de trabajo.',
+    href: '/Repartidores',
+    actionText: 'Ver Repartidores',
+  },
+  {
+    icon: ClipboardList,
+    title: 'Clientes de Reparto',
+    description: 'Defina puntos de entrega específicos para clientes recurrentes, con horarios y tarifas personalizadas.',
+    href: '/ClientesReparto',
+    actionText: 'Ver Clientes de Reparto',
+  },
+  {
+    icon: PackagePlus,
+    title: 'Gestionar Repartos',
+    description: 'Cree nuevas hojas de ruta, asigne repartos a repartidores y realice el seguimiento del estado de las entregas.',
+    href: '/Repartos',
+    actionText: 'Ver Repartos',
+  },
+];
 
 export default function HomePage() {
   return (
-    <div className="container mx-auto p-4 md:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center"> {/* Adjust min-h to account for header */}
-      <h1 className="text-4xl font-bold mb-6 text-primary">
-        Bienvenido a Rumbo Envios
-      </h1>
-      <p className="text-xl text-muted-foreground mb-10 max-w-2xl">
-        Optimice la gestión de sus clientes de manera eficiente y centralizada. Acceda a todas las herramientas necesarias para mantener su base de datos de clientes actualizada y organizada.
-      </p>
-      <Link href="/Clientes">
-        <Button size="lg" className="px-8 py-6 text-lg">
-          Ir a Gestión de Clientes
-        </Button>
-      </Link>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <HeroSection />
+      <div className="mt-12 md:mt-16">
+        <h2 className="text-3xl font-semibold mb-8 text-center text-foreground">
+          Acciones Principales
+        </h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 md:gap-8">
+          {actions.map((action) => (
+            <ActionCard
+              key={action.href}
+              icon={action.icon}
+              title={action.title}
+              description={action.description}
+              href={action.href}
+              actionText={action.actionText}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
