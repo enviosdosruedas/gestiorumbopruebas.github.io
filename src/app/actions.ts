@@ -15,7 +15,7 @@ export async function getClients(): Promise<Client[]> {
     .order('name', { ascending: true });
 
   if (error) {
-    console.error('Supabase getClients error:', error);
+    console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
   // Ensure createdAt and updatedAt are strings if they exist
@@ -42,7 +42,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     .single();
 
   if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: Row not found, which is fine here
-    console.error('Supabase check duplicate clientCode error:', fetchError);
+    console.error('Supabase check duplicate clientCode error:', fetchError.message || JSON.stringify(fetchError));
     return { success: false, message: 'Error checking client code. Please try again.' };
   }
   if (existingClient) {
@@ -73,7 +73,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     .single();
 
   if (insertError) {
-    console.error('Supabase addClient error:', insertError);
+    console.error('Supabase addClient error:', insertError.message || JSON.stringify(insertError));
     return { success: false, message: 'Failed to add client to database.' };
   }
 
@@ -104,7 +104,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     .single();
 
   if (findError || !clientToUpdate) {
-    console.error('Supabase find client for update error:', findError);
+    console.error('Supabase find client for update error:', findError.message || JSON.stringify(findError));
     return { success: false, message: 'Client not found.' };
   }
 
@@ -117,7 +117,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     .single();
 
   if (duplicateCheckError && duplicateCheckError.code !== 'PGRST116') {
-    console.error('Supabase check duplicate clientCode on update error:', duplicateCheckError);
+    console.error('Supabase check duplicate clientCode on update error:', duplicateCheckError.message || JSON.stringify(duplicateCheckError));
     return { success: false, message: 'Error checking client code. Please try again.' };
   }
   if (duplicateClient) {
@@ -149,7 +149,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     .single();
 
   if (updateError) {
-    console.error('Supabase updateClient error:', updateError);
+    console.error('Supabase updateClient error:', updateError.message || JSON.stringify(updateError));
     return { success: false, message: 'Failed to update client in database.' };
   }
   
@@ -171,10 +171,11 @@ export async function deleteClientAction(id: string): Promise<{ success: boolean
     .eq('id', id);
 
   if (deleteError) {
-    console.error('Supabase deleteClient error:', deleteError);
+    console.error('Supabase deleteClient error:', deleteError.message || JSON.stringify(deleteError));
     return { success: false, message: 'Failed to delete client from database.' };
   }
 
   revalidatePath('/Clientes');
   return { success: true };
 }
+
