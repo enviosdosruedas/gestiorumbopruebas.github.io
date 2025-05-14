@@ -9,11 +9,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge, badgeVariants } from "@/components/ui/badge"; // Import badgeVariants
 import { useToast } from '@/hooks/use-toast';
 import { deleteRepartoAction } from '@/app/actions';
-import { Edit3, Trash2, PackageSearch, Loader2, CalendarDays, User, Users, Info, Map, Clock4, FileText, Eye } from 'lucide-react';
+import { Edit3, Trash2, PackageSearch, Loader2, CalendarDays, User, Users, Info, Map, Clock4, ListChecks, FileText, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
+import type { VariantProps } from 'class-variance-authority';
 
 const ClientSideFormattedDate = ({ dateString, formatString = 'PPP' }: { dateString?: string | null, formatString?: string }) => {
   const [displayText, setDisplayText] = useState<string>('...');
