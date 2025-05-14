@@ -19,9 +19,9 @@ const ValidateAddressInputSchema = z.object({
 export type ValidateAddressInput = z.infer<typeof ValidateAddressInputSchema>;
 
 const ValidateAddressOutputSchema = z.object({
-  isValid: z.boolean().describe('Whether the address is valid within Mar del Plata, Argentina.'),
-  validatedAddress: z.string().describe('The validated address, if valid.'),
-  suggestions: z.array(z.string()).describe('Address suggestions if the address is not valid.'),
+  isValid: z.boolean().describe('Whether the address is valid and confirmed to be within Mar del Plata, Argentina.'),
+  validatedAddress: z.string().describe('The validated and formatted address from Google, if valid.'),
+  suggestions: z.array(z.string()).describe('Alternative address suggestions if the input is not precisely valid or outside Mar del Plata.'),
 });
 export type ValidateAddressOutput = z.infer<typeof ValidateAddressOutputSchema>;
 
@@ -36,23 +36,104 @@ const validateAddressTool = ai.defineTool({
       address: z.string().describe('The address to validate.'),
     }),
     outputSchema: z.object({
-      isValid: z.boolean().describe('Whether the address is valid within Mar del Plata, Argentina.'),
-      validatedAddress: z.string().describe('The validated address, if valid.'),
-      suggestions: z.array(z.string()).describe('Address suggestions if the address is not valid.'),
+      isValid: z.boolean().describe('Whether the address is valid and confirmed to be within Mar del Plata, Argentina.'),
+      validatedAddress: z.string().describe('The validated and formatted address from Google, if valid.'),
+      suggestions: z.array(z.string()).describe('Alternative address suggestions if the input is not precisely valid or outside Mar del Plata.'),
     }),
   },
   async (input) => {
-    // TODO: Replace with actual Google Maps API call
-    // This is a placeholder implementation
-    const isValid = input.address.toLowerCase().includes('mar del plata');
-    const validatedAddress = isValid ? input.address : '';
-    const suggestions = isValid ? [] : ['Example Address 1', 'Example Address 2'];
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error('GOOGLE_MAPS_API_KEY is not set in environment variables.');
+      return { isValid: false, validatedAddress: '', suggestions: ['Error: API key para Google Maps no configurada.'] };
+    }
 
-    return {
-      isValid: isValid,
-      validatedAddress: validatedAddress,
-      suggestions: suggestions,
-    };
+    if (!input.address || input.address.trim() === '') {
+        return { isValid: false, validatedAddress: '', suggestions: ['La dirección no puede estar vacía.'] };
+    }
+    
+    const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    geocodeUrl.searchParams.append('address', input.address);
+    geocodeUrl.searchParams.append('key', apiKey);
+    geocodeUrl.searchParams.append('components', 'country:AR|locality:Mar del Plata'); 
+    geocodeUrl.searchParams.append('language', 'es');
+
+    try {
+      const response = await fetch(geocodeUrl.toString());
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`Google Geocoding API error: ${response.status} ${response.statusText}`, errorBody);
+        return { isValid: false, validatedAddress: '', suggestions: ['Error al validar la dirección.'] };
+      }
+
+      const data = await response.json();
+
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        console.error('Google Geocoding API returned status:', data.status, data.error_message);
+        return { isValid: false, validatedAddress: '', suggestions: [data.error_message || 'Error desde la API de Geocodificación de Google.'] };
+      }
+
+      if (data.results && data.results.length > 0) {
+        const firstResult = data.results[0];
+        let isInMarDelPlata = false;
+        
+        if (firstResult.address_components) {
+          for (const component of firstResult.address_components) {
+            if (component.long_name === 'Mar del Plata' && component.types.includes('locality')) {
+              isInMarDelPlata = true;
+              break;
+            }
+            if (component.long_name === 'Partido de General Pueyrredón' && component.types.includes('administrative_area_level_2')) {
+                 const localityComponent = firstResult.address_components.find((c:any) => c.types.includes('locality'));
+                 if (!localityComponent || localityComponent.long_name === 'Mar del Plata') {
+                    isInMarDelPlata = true;
+                    break;
+                 }
+            }
+          }
+        }
+
+        if (isInMarDelPlata) {
+          return {
+            isValid: true,
+            validatedAddress: firstResult.formatted_address,
+            suggestions: [],
+          };
+        } else {
+          return {
+            isValid: false,
+            validatedAddress: '',
+            suggestions: [`Dirección encontrada pero podría no estar en Mar del Plata: ${firstResult.formatted_address}`.slice(0,150)],
+          };
+        }
+      } else { // ZERO_RESULTS
+        const autocompleteUrl = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
+        autocompleteUrl.searchParams.append('input', input.address);
+        autocompleteUrl.searchParams.append('key', apiKey);
+        autocompleteUrl.searchParams.append('components', 'country:AR');
+        autocompleteUrl.searchParams.append('locationbias', 'circle:20000@-38.0054771,-57.5426106');
+        autocompleteUrl.searchParams.append('language', 'es');
+        
+        const autocompleteResponse = await fetch(autocompleteUrl.toString());
+        if (autocompleteResponse.ok) {
+            const autocompleteData = await autocompleteResponse.json();
+            if (autocompleteData.predictions && autocompleteData.predictions.length > 0) {
+                 const mdpSuggestions = (autocompleteData.predictions || [])
+                    .filter((prediction: any) => 
+                      prediction.description && 
+                      (prediction.description.toLowerCase().includes('mar del plata') ||
+                       (prediction.terms && prediction.terms.some((term: any) => term.value.toLowerCase() === 'mar del plata')))
+                    )
+                    .map((prediction: any) => prediction.description);
+                return { isValid: false, validatedAddress: '', suggestions: mdpSuggestions.slice(0, 3) };
+            }
+        }
+        return { isValid: false, validatedAddress: '', suggestions: ['Dirección no encontrada en Mar del Plata.'] };
+      }
+    } catch (error) {
+      console.error('Error llamando a Google Geocoding/Places API:', error);
+      return { isValid: false, validatedAddress: '', suggestions: ['Error de red o problema con la API durante la validación.'] };
+    }
   }
 );
 
@@ -75,3 +156,4 @@ const validateAddressFlow = ai.defineFlow(
     return output!;
   }
 );
+

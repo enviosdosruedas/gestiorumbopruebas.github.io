@@ -18,7 +18,7 @@ const ValidateAndAutocompleteAddressInputSchema = z.object({
 export type ValidateAndAutocompleteAddressInput = z.infer<typeof ValidateAndAutocompleteAddressInputSchema>;
 
 const ValidateAndAutocompleteAddressOutputSchema = z.object({
-  isValid: z.boolean().describe('Whether the address is valid within Mar del Plata, Argentina.'),
+  isValid: z.boolean().describe('Whether any valid Mar del Plata suggestions were found.'),
   suggestions: z.array(z.string()).describe('Auto-completion suggestions for the address.'),
 });
 export type ValidateAndAutocompleteAddressOutput = z.infer<typeof ValidateAndAutocompleteAddressOutputSchema>;
@@ -32,27 +32,65 @@ export async function validateAndAutocompleteAddress(
 const geocodeAddress = ai.defineTool(
   {
     name: 'geocodeAddress',
-    description: 'Uses the Google Maps API to validate and autocomplete an address in Mar del Plata, Argentina.',
+    description: 'Uses the Google Maps API to autocomplete an address in Mar del Plata, Argentina.',
     inputSchema: z.object({
-      address: z.string().describe('The address to validate and autocomplete.'),
+      address: z.string().describe('The partial address to autocomplete.'),
     }),
     outputSchema: z.object({
-      isValid: z.boolean().describe('Whether the address is valid within Mar del Plata, Argentina.'),
+      isValid: z.boolean().describe('Whether any valid Mar del Plata suggestions were found.'),
       suggestions: z.array(z.string()).describe('Auto-completion suggestions for the address.'),
     }),
   },
-  async input => {
-    // TODO: Implement Google Maps API call here to validate and autocomplete the address.
-    // This is a placeholder implementation.
-    console.log(`Validating address: ${input.address}`);
+  async (input) => {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error('GOOGLE_MAPS_API_KEY is not set in environment variables.');
+      return { isValid: false, suggestions: ['Error: API key para Google Maps no configurada.'] };
+    }
 
-    // Simulate address validation and autocompletion.
-    const isValid = input.address.toLowerCase().includes('mar del plata');
-    const suggestions = isValid
-      ? [input.address, `${input.address}, Mar del Plata, Argentina`]
-      : ['Address not found in Mar del Plata'];
+    if (!input.address || input.address.trim().length < 3) {
+      return { isValid: false, suggestions: [] };
+    }
 
-    return {isValid, suggestions};
+    const autocompleteUrl = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
+    autocompleteUrl.searchParams.append('input', input.address);
+    autocompleteUrl.searchParams.append('key', apiKey);
+    autocompleteUrl.searchParams.append('components', 'country:AR'); // Restrict to Argentina
+    autocompleteUrl.searchParams.append('locationbias', 'circle:20000@-38.0054771,-57.5426106'); // Bias towards Mar del Plata (approx. 20km radius)
+    autocompleteUrl.searchParams.append('language', 'es'); // Prefer Spanish results
+
+    try {
+      const response = await fetch(autocompleteUrl.toString());
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`Google Places API Autocomplete error: ${response.status} ${response.statusText}`, errorBody);
+        return { isValid: false, suggestions: ['Error al obtener sugerencias.'] };
+      }
+
+      const data = await response.json();
+
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        console.error('Google Places API Autocomplete returned status:', data.status, data.error_message);
+        return { isValid: false, suggestions: [data.error_message || 'Error desde la API de Google.'] };
+      }
+
+      const mdpSuggestions = (data.predictions || [])
+        .filter((prediction: any) => 
+          prediction.description && 
+          (prediction.description.toLowerCase().includes('mar del plata') || 
+           (prediction.terms && prediction.terms.some((term: any) => term.value.toLowerCase() === 'mar del plata')))
+        )
+        .map((prediction: any) => prediction.description);
+      
+      return {
+        isValid: mdpSuggestions.length > 0,
+        suggestions: mdpSuggestions.slice(0, 5), // Limit to 5 suggestions
+      };
+
+    } catch (error) {
+      console.error('Error llamando a Google Places API Autocomplete:', error);
+      return { isValid: false, suggestions: ['Error de red o problema con la API.'] };
+    }
   }
 );
 
