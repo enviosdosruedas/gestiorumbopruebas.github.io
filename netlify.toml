@@ -1,0 +1,10 @@
+[build]
+  # Your build command and publish directory are likely configured in Netlify's UI
+  # or could be added here if needed, for example:
+  # command = "pnpm build"
+  # publish = ".next"
+
+[build.environment]
+  # Tells Netlify's secret scanner to ignore these specific keys
+  # if they are found in the build output. This is common for NEXT_PUBLIC_ variables.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
