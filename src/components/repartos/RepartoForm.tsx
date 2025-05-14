@@ -4,7 +4,8 @@
 import type { Reparto, RepartoFormData, Client, DeliveryPerson, DeliveryClientInfo, Zona, DetalleRepartoFormData } from '@/types';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { repartoSchema, ALL_DELIVERY_STATUSES } from '@/lib/schema';
+import { repartoSchema } from '@/lib/schema';
+import { ALL_DELIVERY_STATUSES } from '@/types'; // Corregida la importación
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
