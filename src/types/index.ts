@@ -1,4 +1,5 @@
 
+
 export interface Client {
   id: string; 
   nombre: string; 
@@ -62,7 +63,7 @@ export interface DetalleReparto {
   valor_entrega?: number | null;
   detalle_entrega?: string | null;
   orden_visita: number;
-  estado_entrega: DetalleRepartoStatus; // Added field for individual item status
+  estado_entrega: DetalleRepartoStatus; 
   created_at?: string | null;
   updated_at?: string | null;
   // Campos enriquecidos
@@ -70,14 +71,14 @@ export interface DetalleReparto {
   cliente_reparto_direccion?: string | null;
   cliente_reparto_horario_preferido?: string | null;
   cliente_reparto_restricciones?: string | null;
-  cliente_reparto_telefono?: string | null; // Added for task card
+  cliente_reparto_telefono?: string | null; 
 }
 
 export interface DetalleRepartoFormData {
   cliente_reparto_id: string; 
   valor_entrega?: number | null;
   detalle_entrega?: string | null;
-  estado_entrega?: DetalleRepartoStatus; // Added
+  estado_entrega?: DetalleRepartoStatus; 
 }
 
 export const ALL_REPARTO_STATUSES = ["pendiente", "en curso", "entregado", "cancelado", "reprogramado"] as const;
@@ -120,7 +121,6 @@ export interface AddressValidationSuggestion {
 
 // For Mobile Dashboard
 export interface MobileDashboardTask extends DetalleReparto {
-  // Potentially add more fields specific to the mobile dashboard view if needed
   reparto_fecha?: string;
   reparto_observaciones?: string | null;
 }
@@ -145,13 +145,13 @@ export type Database = {
           updated_at: string | null; 
         };
         Insert: {
-          id?: string;
+          id?: string; // uuid_generate_v4()
           nombre: string;
           direccion?: string | null;
           telefono?: string | null;
           email?: string | null;
-          created_at?: string | null; 
-          updated_at?: string | null; 
+          created_at?: string | null; // default now()
+          updated_at?: string | null; // default now()
         };
         Update: {
           id?: string;
@@ -159,30 +159,30 @@ export type Database = {
           direccion?: string | null;
           telefono?: string | null;
           email?: string | null;
-          updated_at?: string | null; 
+          updated_at?: string | null; // handled by trigger
         };
       };
       clientes_reparto: {
         Row: {
-          id: number;
-          cliente_id: string;
-          nombre_reparto: string;
-          direccion_reparto: string | null;
-          rango_horario: string | null;
-          tarifa: number | null;
-          created_at: string | null;
-          updated_at: string | null;
-          telefono_reparto: string | null;
+          id: number; // serial
+          cliente_id: string; // uuid
+          nombre_reparto: string; // character varying(255)
+          direccion_reparto: string | null; // text
+          rango_horario: string | null; // character varying(255)
+          tarifa: number | null; // numeric(10,2)
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
+          telefono_reparto: string | null; // character varying(20)
         };
         Insert: {
-          id?: number; 
+          id?: number; // serial
           cliente_id: string;
           nombre_reparto: string;
           direccion_reparto?: string | null;
           rango_horario?: string | null;
           tarifa?: number | null;
-          created_at?: string | null; 
-          updated_at?: string | null; 
+          created_at?: string | null; // default CURRENT_TIMESTAMP
+          updated_at?: string | null; // handled by trigger
           telefono_reparto?: string | null;
         };
         Update: {
@@ -192,116 +192,32 @@ export type Database = {
           direccion_reparto?: string | null;
           rango_horario?: string | null;
           tarifa?: number | null;
-          updated_at?: string | null; 
+          updated_at?: string | null; // handled by trigger
           telefono_reparto?: string | null;
-        };
-      };
-      repartidores: {
-        Row: {
-          id: string;
-          nombre: string;
-          identificacion: string | null;
-          telefono: string | null;
-          vehiculo: string | null;
-          created_at: string | null; 
-          updated_at: string | null; 
-        };
-        Insert: {
-          id?: string;
-          nombre: string;
-          identificacion?: string | null;
-          telefono?: string | null;
-          vehiculo?: string | null;
-          created_at?: string | null; 
-          updated_at?: string | null; 
-        };
-        Update: {
-          id?: string;
-          nombre?: string;
-          identificacion?: string | null;
-          telefono?: string | null;
-          vehiculo?: string | null;
-          updated_at?: string | null; 
-        };
-      };
-      zonas: { 
-        Row: {
-          id: number;
-          nombre: string;
-          created_at: string | null; 
-          updated_at: string | null; 
-        };
-        Insert: {
-          id?: number;
-          nombre: string;
-          created_at?: string | null; 
-          updated_at?: string | null; 
-        };
-        Update: {
-          id?: number;
-          nombre?: string;
-          updated_at?: string | null; 
-        };
-      };
-      repartos: {
-        Row: {
-          id: number;
-          fecha_reparto: string; 
-          repartidor_id: string; 
-          cliente_id: string | null; 
-          zona_id: number | null; 
-          tanda: number | null; 
-          observaciones: string | null;
-          created_at: string | null; 
-          updated_at: string | null; 
-          estado: RepartoStatus; 
-        };
-        Insert: {
-          id?: number;
-          fecha_reparto: string;
-          repartidor_id: string;
-          cliente_id?: string | null; 
-          zona_id?: number | null; 
-          tanda?: number | null; 
-          observaciones?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-          estado: RepartoStatus;
-        };
-        Update: {
-          id?: number;
-          fecha_reparto?: string;
-          repartidor_id?: string;
-          cliente_id?: string | null; 
-          zona_id?: number | null; 
-          tanda?: number | null; 
-          observaciones?: string | null;
-          updated_at?: string | null;
-          estado?: RepartoStatus;
         };
       };
       detalles_reparto: { 
         Row: {
-          id: number;
-          reparto_id: number;
-          cliente_reparto_id: number;
-          valor_entrega: number | null;
-          detalle_entrega: string | null;
-          orden_visita: number;
-          estado_entrega: DetalleRepartoStatus; // Added
-          created_at: string | null; 
-          updated_at: string | null; 
+          id: number; // serial
+          reparto_id: number; // integer
+          cliente_reparto_id: number; // integer
+          valor_entrega: number | null; // numeric(10,2)
+          detalle_entrega: string | null; // text
+          orden_visita: number; // integer
+          estado_entrega: DetalleRepartoStatus; // TEXT - Add to DB schema
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
         };
         Insert: {
-          id?: number;
+          id?: number; // serial
           reparto_id: number;
           cliente_reparto_id: number;
           valor_entrega?: number | null;
           detalle_entrega?: string | null;
-          orden_visita: number;
-          estado_entrega: DetalleRepartoStatus; // Added
-          created_at?: string | null; 
-          updated_at?: string | null; 
+          orden_visita?: number; // default 0
+          estado_entrega: DetalleRepartoStatus; // Add to DB schema
+          created_at?: string | null; // default now()
+          updated_at?: string | null; // default now()
         };
         Update: {
           id?: number;
@@ -310,27 +226,92 @@ export type Database = {
           valor_entrega?: number | null;
           detalle_entrega?: string | null;
           orden_visita?: number;
-          estado_entrega?: DetalleRepartoStatus; // Added
-          updated_at?: string | null; 
+          estado_entrega?: DetalleRepartoStatus; // Add to DB schema
+          updated_at?: string | null; // handled by trigger
+        };
+      };
+      repartidores: {
+        Row: {
+          id: string; // uuid
+          nombre: string; // text
+          identificacion: string | null; // text
+          telefono: string | null; // text
+          vehiculo: string | null; // text
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
+        };
+        Insert: {
+          id?: string; // uuid_generate_v4()
+          nombre: string;
+          identificacion?: string | null;
+          telefono?: string | null;
+          vehiculo?: string | null;
+          created_at?: string | null; // default now()
+          updated_at?: string | null; // default now()
+        };
+        Update: {
+          id?: string;
+          nombre?: string;
+          identificacion?: string | null;
+          telefono?: string | null;
+          vehiculo?: string | null;
+          updated_at?: string | null; // handled by trigger
+        };
+      };
+      repartos: {
+        Row: {
+          id: number; // serial
+          fecha_reparto: string; // date
+          repartidor_id: string; // uuid
+          cliente_id: string | null; // uuid
+          observaciones: string | null; // text
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
+          estado: string | null; // character varying(20)
+          zona_id: number | null; // integer
+          tanda: number | null; // integer
+        };
+        Insert: {
+          id?: number; // serial
+          fecha_reparto: string;
+          repartidor_id: string;
+          cliente_id?: string | null;
+          observaciones?: string | null;
+          created_at?: string | null; // default CURRENT_TIMESTAMP
+          updated_at?: string | null; // default now()
+          estado?: string | null; // default 'Asignado'
+          zona_id?: number | null;
+          tanda?: number | null;
+        };
+        Update: {
+          id?: number;
+          fecha_reparto?: string;
+          repartidor_id?: string;
+          cliente_id?: string | null;
+          observaciones?: string | null;
+          updated_at?: string | null; // handled by trigger
+          estado?: string | null;
+          zona_id?: number | null;
+          tanda?: number | null;
         };
       };
       usuarios: {
         Row: {
-          codigo: number; 
-          nombre: string;
-          pass: string;
-          rol: string;
-          created_at: string | null; 
-          updated_at: string | null; 
-          repartidor_id: string | null;
+          codigo: number; // serial
+          nombre: string; // character varying(255)
+          pass: string; // text
+          rol: string; // character varying(50)
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
+          repartidor_id: string | null; // uuid
         };
         Insert: {
-          codigo?: number;
+          codigo?: number; // serial
           nombre: string;
           pass: string;
           rol: string;
-          created_at?: string | null;
-          updated_at?: string | null;
+          created_at?: string | null; // default CURRENT_TIMESTAMP
+          updated_at?: string | null; // default now()
           repartidor_id?: string | null;
         };
         Update: {
@@ -338,8 +319,27 @@ export type Database = {
           nombre?: string;
           pass?: string;
           rol?: string;
-          updated_at?: string | null;
+          updated_at?: string | null; // handled by trigger
           repartidor_id?: string | null;
+        };
+      };
+      zonas: { 
+        Row: {
+          id: number; // serial
+          nombre: string; // text
+          created_at: string | null; // timestamp with time zone
+          updated_at: string | null; // timestamp with time zone
+        };
+        Insert: {
+          id?: number; // serial
+          nombre: string;
+          created_at?: string | null; // default now()
+          updated_at?: string | null; // default now()
+        };
+        Update: {
+          id?: number;
+          nombre?: string;
+          updated_at?: string | null; // handled by trigger
         };
       };
     };
@@ -347,10 +347,12 @@ export type Database = {
       // Define views here if any
     };
     Functions: {
-      update_updated_at_column?: { 
+      update_updated_at_column?: { // Based on your schema's trigger usage
         Args: {}; 
         Returns: unknown; 
       };
+      // You might have other functions like uuid_generate_v4 from extensions
+      // but they are not typically defined here unless directly called from client
     };
   };
 }

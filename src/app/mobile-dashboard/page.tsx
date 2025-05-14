@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 // TODO: Replace with actual logged-in driver ID from session/auth
-const MOCK_DRIVER_ID = "a0e0b1e9-1b21-4967-9783-b0a620530b0e"; // Example UUID
+const MOCK_DRIVER_ID = "e87b1e04-b4bb-40ed-b1ce-3b9623f7eab4"; // Example UUID
 
 export default async function MobileDashboardPage() {
   const driverId = MOCK_DRIVER_ID; // Replace with actual dynamic driver ID
