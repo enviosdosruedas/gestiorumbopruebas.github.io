@@ -1,28 +1,28 @@
 
 'use server';
 
-import type { Client, ClientFormData } from '@/types';
+import type { Client, ClientFormData, DeliveryPerson, RepartidorFormData } from '@/types';
 import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate-address';
 import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
-import { clientSchema } from '@/lib/schema';
+import { clientSchema, repartidorSchema } from '@/lib/schema';
 import { supabase } from '@/lib/supabaseClient';
 
+// Client Actions
 export async function getClients(): Promise<Client[]> {
   const { data, error } = await supabase
-    .from('clientes') // Changed from 'clients'
-    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
+    .from('clientes')
+    .select('id, nombre, direccion, telefono, email')
     .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Supabase getClients error:', error.message || JSON.stringify(error));
     throw new Error('Failed to fetch clients.');
   }
-  // Map to domain model, address can be null
   return data.map(client => ({
     id: client.id,
     name: client.nombre,
-    address: client.direccion, // direccion can be null
+    address: client.direccion,
     telefono: client.telefono,
     email: client.email,
   })) as Client[];
@@ -37,23 +37,26 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   const { name, address, telefono, email } = validationResult.data;
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  try {
-    validatedAddressInfo = await validateAddress({ address });
-  } catch (error) {
-    console.error('AI Address Validation Error:', error);
+  if (address) { // Only validate if address is provided
+    try {
+      validatedAddressInfo = await validateAddress({ address });
+    } catch (error) {
+      console.error('AI Address Validation Error:', error);
+    }
   }
 
+
   const clientDataToInsert = {
-    nombre: name, // Changed from name
-    direccion: address, // Changed from address
+    nombre: name,
+    direccion: address,
     telefono: telefono || null,
     email: email || null,
   };
 
   const { data: newClientRecord, error: insertError } = await supabase
-    .from('clientes') // Changed from 'clients'
+    .from('clientes')
     .insert(clientDataToInsert)
-    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
+    .select('id, nombre, direccion, telefono, email')
     .single();
 
   if (insertError) {
@@ -84,7 +87,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   const { name, address, telefono, email } = validationResult.data;
   
   const { data: clientToUpdate, error: findError } = await supabase
-    .from('clientes') // Changed from 'clients'
+    .from('clientes')
     .select('id')
     .eq('id', id)
     .single();
@@ -95,25 +98,26 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
   }
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
-  try {
-    validatedAddressInfo = await validateAddress({ address });
-  } catch (error) {
-    console.error('AI Address Validation Error:', error);
+  if (address) { // Only validate if address is provided
+    try {
+      validatedAddressInfo = await validateAddress({ address });
+    } catch (error) {
+      console.error('AI Address Validation Error:', error);
+    }
   }
   
   const clientDataToUpdate = {
-    nombre: name, // Changed from name
-    direccion: address, // Changed from address
+    nombre: name,
+    direccion: address,
     telefono: telefono || null,
     email: email || null,
-    // updated_at is not managed by client if not in table or no trigger
   };
 
   const { data: updatedClientRecord, error: updateError } = await supabase
-    .from('clientes') // Changed from 'clients'
+    .from('clientes')
     .update(clientDataToUpdate)
     .eq('id', id)
-    .select('id, nombre, direccion, telefono, email') // Explicitly select columns
+    .select('id, nombre, direccion, telefono, email')
     .single();
 
   if (updateError) {
@@ -137,7 +141,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
 export async function deleteClientAction(id: string): Promise<{ success: boolean; message?: string }> {
   const { error: deleteError } = await supabase
-    .from('clientes') // Changed from 'clients'
+    .from('clientes')
     .delete()
     .eq('id', id);
 
@@ -147,5 +151,119 @@ export async function deleteClientAction(id: string): Promise<{ success: boolean
   }
 
   revalidatePath('/Clientes');
+  return { success: true };
+}
+
+
+// Delivery Person (Repartidor) Actions
+export async function getRepartidores(): Promise<DeliveryPerson[]> {
+  const { data, error } = await supabase
+    .from('repartidores')
+    .select('id, nombre, identificacion, telefono, vehiculo')
+    .order('nombre', { ascending: true });
+
+  if (error) {
+    console.error('Supabase getRepartidores error:', error.message || JSON.stringify(error));
+    throw new Error('Failed to fetch repartidores.');
+  }
+  return data as DeliveryPerson[];
+}
+
+export async function addRepartidorAction(formData: RepartidorFormData): Promise<{ success: boolean; deliveryPerson?: DeliveryPerson; errors?: z.ZodIssue[]; message?: string }> {
+  const validationResult = repartidorSchema.safeParse(formData);
+  if (!validationResult.success) {
+    return { success: false, errors: validationResult.error.errors };
+  }
+
+  const { nombre, identificacion, telefono, vehiculo } = validationResult.data;
+
+  const repartidorDataToInsert = {
+    nombre,
+    identificacion: identificacion || null,
+    telefono: telefono || null,
+    vehiculo: vehiculo || null,
+  };
+
+  const { data: newRecord, error: insertError } = await supabase
+    .from('repartidores')
+    .insert(repartidorDataToInsert)
+    .select('id, nombre, identificacion, telefono, vehiculo')
+    .single();
+
+  if (insertError) {
+    console.error('Supabase addRepartidor error:', insertError.message || JSON.stringify(insertError));
+    if (insertError.code === '23505' && insertError.message.includes('repartidores_identificacion_key')) {
+        return { success: false, message: 'Error al agregar repartidor: La identificación ya existe.' };
+    }
+    return { success: false, message: 'Error al agregar repartidor a la base de datos.' };
+  }
+
+  revalidatePath('/Repartidores');
+  return { 
+    success: true, 
+    deliveryPerson: newRecord as DeliveryPerson
+  };
+}
+
+export async function updateRepartidorAction(id: string, formData: RepartidorFormData): Promise<{ success: boolean; deliveryPerson?: DeliveryPerson; errors?: z.ZodIssue[]; message?: string }> {
+  const validationResult = repartidorSchema.safeParse(formData);
+  if (!validationResult.success) {
+    return { success: false, errors: validationResult.error.errors };
+  }
+
+  const { nombre, identificacion, telefono, vehiculo } = validationResult.data;
+  
+  const { data: recordToUpdate, error: findError } = await supabase
+    .from('repartidores')
+    .select('id')
+    .eq('id', id)
+    .single();
+
+  if (findError || !recordToUpdate) {
+    console.error('Supabase find repartidor for update error:', findError ? (findError.message || JSON.stringify(findError)) : 'Repartidor not found');
+    return { success: false, message: 'Repartidor no encontrado.' };
+  }
+  
+  const repartidorDataToUpdate = {
+    nombre,
+    identificacion: identificacion || null,
+    telefono: telefono || null,
+    vehiculo: vehiculo || null,
+  };
+
+  const { data: updatedRecord, error: updateError } = await supabase
+    .from('repartidores')
+    .update(repartidorDataToUpdate)
+    .eq('id', id)
+    .select('id, nombre, identificacion, telefono, vehiculo')
+    .single();
+
+  if (updateError) {
+    console.error('Supabase updateRepartidor error:', updateError.message || JSON.stringify(updateError));
+    if (updateError.code === '23505' && updateError.message.includes('repartidores_identificacion_key')) {
+        return { success: false, message: 'Error al actualizar repartidor: La identificación ya existe para otro repartidor.' };
+    }
+    return { success: false, message: 'Error al actualizar repartidor en la base de datos.' };
+  }
+  
+  revalidatePath('/Repartidores');
+  return { 
+    success: true, 
+    deliveryPerson: updatedRecord as DeliveryPerson
+  };
+}
+
+export async function deleteRepartidorAction(id: string): Promise<{ success: boolean; message?: string }> {
+  const { error: deleteError } = await supabase
+    .from('repartidores')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    console.error('Supabase deleteRepartidor error:', deleteError.message || JSON.stringify(deleteError));
+    return { success: false, message: 'Error al eliminar repartidor de la base de datos.' };
+  }
+
+  revalidatePath('/Repartidores');
   return { success: true };
 }
