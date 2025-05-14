@@ -47,7 +47,7 @@ export default function MobileTaskCard({ task, driverId }: MobileTaskCardProps) 
 
   const handleNavigate = () => {
     if (task.cliente_reparto_direccion) {
-      const mapsUrl = \`https://www.google.com/maps/dir/?api=1&destination=\${encodeURIComponent(task.cliente_reparto_direccion)}\`;
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(task.cliente_reparto_direccion)}`;
       window.open(mapsUrl, '_blank');
     } else {
       toast({ title: "Error", description: "No hay dirección para navegar.", variant: "destructive" });
@@ -59,7 +59,7 @@ export default function MobileTaskCard({ task, driverId }: MobileTaskCardProps) 
     try {
       const result = await updateDetalleRepartoStatusAction(task.id, newStatus);
       if (result.success && result.updatedTask) {
-        toast({ title: "Estado Actualizado", description: \`Entrega marcada como \${getStatusText(newStatus)}.\` });
+        toast({ title: "Estado Actualizado", description: `Entrega marcada como ${getStatusText(newStatus)}.` });
         // Parent component will re-fetch and re-render, or we can update local state if needed.
       } else {
         toast({ title: "Error", description: result.message || "No se pudo actualizar el estado.", variant: "destructive" });
