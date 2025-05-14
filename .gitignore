@@ -1,45 +1,47 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# System files
 .DS_Store
-*.pem
+Thumbs.db
 
-# debug
+# Environment variables
+# IMPORTANT: Never commit your .env file if it contains sensitive secrets.
+# For public variables managed by Next.js (prefixed with NEXT_PUBLIC_),
+# they are intended to be bundled, but the .env file itself should be ignored.
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node.js
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
+*.log
+logs
 
-# vercel
-.vercel
+# Next.js
+.next/
+out/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Supabase local development
+supabase/.supabase/
+supabase/functions/.env*
+supabase/db/shadow/
+supabase/volumes/
 
-.genkit/*
-.env*
+# IDEs and editors
+.vscode/
+!.vscode/extensions.json # Allow committing recommended extensions
+!.vscode/settings.json   # Allow committing project-specific settings if desired, otherwise keep .vscode/ ignored
+.idea/
 
-# firebase
-firebase-debug.log
-firestore-debug.log
+# Build artifacts
+dist/
+build/
+coverage/
+
+# Other
+*.pem
+*.key
