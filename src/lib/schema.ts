@@ -5,7 +5,7 @@ import { ALL_REPARTO_STATUSES, ALL_DETALLE_REPARTO_STATUSES } from '@/types';
 
 export const clientSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido").max(100, "El nombre debe tener 100 caracteres o menos"),
-  direccion: z.string().min(1, "La dirección es requerida").max(200, "La dirección debe tener 200 caracteres o menos"),
+  direccion: z.string().max(200, "La dirección debe tener 200 caracteres o menos").optional().nullable().or(z.literal('')),
   telefono: z.string().max(20, "El teléfono debe tener 20 caracteres o menos").optional().nullable().or(z.literal('')),
   email: z.string().email({ message: "Email inválido" }).max(100, "El email debe tener 100 caracteres o menos").optional().nullable().or(z.literal('')),
 });
