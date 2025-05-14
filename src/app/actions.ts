@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { Client, ClientFormData } from '@/types';
@@ -5,38 +6,24 @@ import { validateAddress, type ValidateAddressOutput } from '@/ai/flows/validate
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { clientSchema } from '@/lib/schema';
-
-// In-memory store for clients (replace with actual Supabase client)
-let clients: Client[] = [
-  {
-    id: '1',
-    clientCode: 'C001',
-    name: 'John Doe',
-    address: 'Av. Colón 1234, Mar del Plata',
-    validatedAddress: 'Avenida Cristobal Colón 1234, B7600 Mar del Plata, Provincia de Buenos Aires, Argentina',
-    isAddressValid: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    clientCode: 'C002',
-    name: 'Jane Smith',
-    address: 'Belgrano 2345, MDP',
-    validatedAddress: 'Manuel Belgrano 2345, B7600 Mar del Plata, Provincia de Buenos Aires, Argentina',
-    isAddressValid: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-];
-
-// Helper function to simulate database interaction
-const simulateDBDelay = () => new Promise(resolve => setTimeout(resolve, 500));
+import { supabase } from '@/lib/supabaseClient';
 
 export async function getClients(): Promise<Client[]> {
-  await simulateDBDelay();
-  // Sort by name for consistent order
-  return [...clients].sort((a, b) => a.name.localeCompare(b.name));
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Supabase getClients error:', error);
+    throw new Error('Failed to fetch clients.');
+  }
+  // Ensure createdAt and updatedAt are strings if they exist
+  return data.map(client => ({
+    ...client,
+    createdAt: client.createdAt ? new Date(client.createdAt).toISOString() : undefined,
+    updatedAt: client.updatedAt ? new Date(client.updatedAt).toISOString() : undefined,
+  })) as Client[];
 }
 
 export async function addClientAction(formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string }> {
@@ -48,7 +35,17 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
   const { clientCode, name, address } = validationResult.data;
 
   // Check for duplicate client code
-  if (clients.some(c => c.clientCode === clientCode)) {
+  const { data: existingClient, error: fetchError } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('clientCode', clientCode) // Assuming your column name is clientCode
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: Row not found, which is fine here
+    console.error('Supabase check duplicate clientCode error:', fetchError);
+    return { success: false, message: 'Error checking client code. Please try again.' };
+  }
+  if (existingClient) {
     return { success: false, message: 'Client code already exists.' };
   }
   
@@ -60,21 +57,35 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
     return { success: false, message: 'Error validating address with AI. Please try again.' };
   }
 
-  const newClient: Client = {
-    id: String(Date.now()), // Simple unique ID for demo
+  const clientDataToInsert = {
     clientCode,
     name,
-    address, // Original user input
+    address,
     validatedAddress: validatedAddressInfo.isValid ? validatedAddressInfo.validatedAddress : null,
     isAddressValid: validatedAddressInfo.isValid,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    // Supabase will handle createdAt and updatedAt if table is configured with defaults
   };
 
-  await simulateDBDelay();
-  clients.push(newClient);
-  revalidatePath('/');
-  return { success: true, client: newClient };
+  const { data: newClientRecord, error: insertError } = await supabase
+    .from('clients')
+    .insert(clientDataToInsert)
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error('Supabase addClient error:', insertError);
+    return { success: false, message: 'Failed to add client to database.' };
+  }
+
+  revalidatePath('/Clientes');
+  return { 
+    success: true, 
+    client: {
+      ...newClientRecord,
+      createdAt: newClientRecord.createdAt ? new Date(newClientRecord.createdAt).toISOString() : undefined,
+      updatedAt: newClientRecord.updatedAt ? new Date(newClientRecord.updatedAt).toISOString() : undefined,
+    } as Client
+  };
 }
 
 export async function updateClientAction(id: string, formData: ClientFormData): Promise<{ success: boolean; client?: Client; errors?: z.ZodIssue[]; message?: string }> {
@@ -85,13 +96,31 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
   const { clientCode, name, address } = validationResult.data;
   
-  const clientIndex = clients.findIndex(c => c.id === id);
-  if (clientIndex === -1) {
+  // Check if client exists
+  const { data: clientToUpdate, error: findError } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('id', id)
+    .single();
+
+  if (findError || !clientToUpdate) {
+    console.error('Supabase find client for update error:', findError);
     return { success: false, message: 'Client not found.' };
   }
 
   // Check for duplicate client code (excluding the current client being updated)
-  if (clients.some(c => c.id !== id && c.clientCode === clientCode)) {
+  const { data: duplicateClient, error: duplicateCheckError } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('clientCode', clientCode)
+    .neq('id', id)
+    .single();
+
+  if (duplicateCheckError && duplicateCheckError.code !== 'PGRST116') {
+    console.error('Supabase check duplicate clientCode on update error:', duplicateCheckError);
+    return { success: false, message: 'Error checking client code. Please try again.' };
+  }
+  if (duplicateClient) {
     return { success: false, message: 'Client code already exists for another client.' };
   }
 
@@ -103,31 +132,49 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
     return { success: false, message: 'Error validating address with AI. Please try again.' };
   }
   
-  const updatedClient: Client = {
-    ...clients[clientIndex],
+  const clientDataToUpdate = {
     clientCode,
     name,
-    address, // Original user input
+    address,
     validatedAddress: validatedAddressInfo.isValid ? validatedAddressInfo.validatedAddress : null,
     isAddressValid: validatedAddressInfo.isValid,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), // Explicitly set updatedAt
   };
 
-  await simulateDBDelay();
-  clients[clientIndex] = updatedClient;
-  revalidatePath('/');
-  return { success: true, client: updatedClient };
+  const { data: updatedClientRecord, error: updateError } = await supabase
+    .from('clients')
+    .update(clientDataToUpdate)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error('Supabase updateClient error:', updateError);
+    return { success: false, message: 'Failed to update client in database.' };
+  }
+  
+  revalidatePath('/Clientes');
+  return { 
+    success: true, 
+    client: {
+      ...updatedClientRecord,
+      createdAt: updatedClientRecord.createdAt ? new Date(updatedClientRecord.createdAt).toISOString() : undefined,
+      updatedAt: updatedClientRecord.updatedAt ? new Date(updatedClientRecord.updatedAt).toISOString() : undefined,
+    } as Client
+  };
 }
 
 export async function deleteClientAction(id: string): Promise<{ success: boolean; message?: string }> {
-  await simulateDBDelay();
-  const initialLength = clients.length;
-  clients = clients.filter(client => client.id !== id);
-  
-  if (clients.length === initialLength) {
-    return { success: false, message: 'Client not found or already deleted.' };
+  const { error: deleteError } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    console.error('Supabase deleteClient error:', deleteError);
+    return { success: false, message: 'Failed to delete client from database.' };
   }
 
-  revalidatePath('/');
+  revalidatePath('/Clientes');
   return { success: true };
 }

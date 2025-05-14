@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput';
+import { AddressAutocompleteInput } from '@/components/clientes/AddressAutocompleteInput';
 import { useToast } from '@/hooks/use-toast';
 import { addClientAction, updateClientAction } from '@/app/actions';
 import { useState, useEffect } from 'react';
