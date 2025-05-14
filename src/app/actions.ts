@@ -45,7 +45,7 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
 
   const clientDataToInsert: Database['public']['Tables']['clientes']['Insert'] = {
     nombre: nombre,
-    direccion: direccion || null, // Ensure null if empty string or undefined
+    direccion: direccion || null, 
     telefono: telefono || null,
     email: email || null,
   };
@@ -58,7 +58,8 @@ export async function addClientAction(formData: ClientFormData): Promise<{ succe
 
   if (insertError) {
     console.error('Supabase addClient error:', insertError.message || JSON.stringify(insertError));
-    return { success: false, message: 'Failed to add client to database.', addressValidation: validatedAddressInfo };
+    const specificMessage = insertError.message ? `Error de base de datos: ${insertError.message}` : 'No se pudo agregar el cliente a la base de datos.';
+    return { success: false, message: specificMessage, addressValidation: validatedAddressInfo };
   }
 
   revalidatePath('/Clientes');
@@ -85,7 +86,7 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
   if (findError || !clientToUpdate) {
     console.error('Supabase find client for update error:', findError ? (findError.message || JSON.stringify(findError)) : 'Client not found');
-    return { success: false, message: 'Client not found.' };
+    return { success: false, message: 'Cliente no encontrado.' };
   }
   
   let validatedAddressInfo: ValidateAddressOutput | undefined;
@@ -114,7 +115,8 @@ export async function updateClientAction(id: string, formData: ClientFormData): 
 
   if (updateError) {
     console.error('Supabase updateClient error:', updateError.message || JSON.stringify(updateError));
-    return { success: false, message: 'Failed to update client in database.', addressValidation: validatedAddressInfo };
+    const specificMessage = updateError.message ? `Error de base de datos: ${updateError.message}` : 'No se pudo actualizar el cliente.';
+    return { success: false, message: specificMessage, addressValidation: validatedAddressInfo };
   }
   
   revalidatePath('/Clientes');
@@ -133,7 +135,8 @@ export async function deleteClientAction(id: string): Promise<{ success: boolean
 
   if (deleteError) {
     console.error('Supabase deleteClient error:', deleteError.message || JSON.stringify(deleteError));
-    return { success: false, message: 'Failed to delete client from database.' };
+    const specificMessage = deleteError.message ? `Error de base de datos: ${deleteError.message}` : 'No se pudo eliminar el cliente.';
+    return { success: false, message: specificMessage };
   }
 
   revalidatePath('/Clientes');
@@ -178,10 +181,13 @@ export async function addRepartidorAction(formData: RepartidorFormData): Promise
 
   if (insertError) {
     console.error('Supabase addRepartidor error:', insertError.message || JSON.stringify(insertError));
+    let message = 'Error al agregar repartidor a la base de datos.';
     if (insertError.code === '23505' && insertError.message.includes('repartidores_identificacion_key')) {
-        return { success: false, message: 'Error al agregar repartidor: La identificación ya existe.' };
+        message = 'Error al agregar repartidor: La identificación ya existe.';
+    } else if (insertError.message) {
+        message = `Error de base de datos: ${insertError.message}`;
     }
-    return { success: false, message: 'Error al agregar repartidor a la base de datos.' };
+    return { success: false, message };
   }
 
   revalidatePath('/Repartidores');
@@ -227,10 +233,13 @@ export async function updateRepartidorAction(id: string, formData: RepartidorFor
 
   if (updateError) {
     console.error('Supabase updateRepartidor error:', updateError.message || JSON.stringify(updateError));
+    let message = 'Error al actualizar repartidor en la base de datos.';
     if (updateError.code === '23505' && updateError.message.includes('repartidores_identificacion_key')) {
-        return { success: false, message: 'Error al actualizar repartidor: La identificación ya existe para otro repartidor.' };
+        message = 'Error al actualizar repartidor: La identificación ya existe para otro repartidor.';
+    } else if (updateError.message) {
+        message = `Error de base de datos: ${updateError.message}`;
     }
-    return { success: false, message: 'Error al actualizar repartidor en la base de datos.' };
+    return { success: false, message };
   }
   
   revalidatePath('/Repartidores');
@@ -248,7 +257,8 @@ export async function deleteRepartidorAction(id: string): Promise<{ success: boo
 
   if (deleteError) {
     console.error('Supabase deleteRepartidor error:', deleteError.message || JSON.stringify(deleteError));
-    return { success: false, message: 'Error al eliminar repartidor de la base de datos.' };
+    const specificMessage = deleteError.message ? `Error de base de datos: ${deleteError.message}` : 'Error al eliminar repartidor de la base de datos.';
+    return { success: false, message: specificMessage };
   }
 
   revalidatePath('/Repartidores');
@@ -347,7 +357,8 @@ export async function addDeliveryClientInfoAction(formData: DeliveryClientInfoFo
 
   if (insertError) {
     console.error('Supabase addDeliveryClientInfo error:', insertError.message || JSON.stringify(insertError));
-    return { success: false, message: 'Error al agregar información de cliente de reparto.' };
+    const specificMessage = insertError.message ? `Error de base de datos: ${insertError.message}` : 'Error al agregar información de cliente de reparto.';
+    return { success: false, message: specificMessage };
   }
   
   revalidatePath('/ClientesReparto');
@@ -400,7 +411,8 @@ export async function updateDeliveryClientInfoAction(id: number, formData: Deliv
 
   if (updateError) {
     console.error('Supabase updateDeliveryClientInfo error:', updateError.message || JSON.stringify(updateError));
-    return { success: false, message: 'Error al actualizar información de cliente de reparto.' };
+    const specificMessage = updateError.message ? `Error de base de datos: ${updateError.message}` : 'Error al actualizar información de cliente de reparto.';
+    return { success: false, message: specificMessage };
   }
   
   revalidatePath('/ClientesReparto');
@@ -421,7 +433,8 @@ export async function deleteDeliveryClientInfoAction(id: number): Promise<{ succ
 
   if (deleteError) {
     console.error('Supabase deleteDeliveryClientInfo error:', deleteError.message || JSON.stringify(deleteError));
-    return { success: false, message: 'Error al eliminar información de cliente de reparto.' };
+    const specificMessage = deleteError.message ? `Error de base de datos: ${deleteError.message}` : 'Error al eliminar información de cliente de reparto.';
+    return { success: false, message: specificMessage };
   }
 
   revalidatePath('/ClientesReparto');
@@ -500,7 +513,7 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
   const { fecha_reparto, repartidor_id, cliente_id, zona_id, tanda, estado, detalles_reparto, observaciones } = validationResult.data;
 
-  const finalClienteId = cliente_id === "___NO_CLIENT_PRINCIPAL___" ? null : cliente_id;
+  const finalClienteId = cliente_id === "___NO_CLIENTE_PRINCIPAL___" ? null : cliente_id;
   
   const { data: newReparto, error: insertRepartoError } = await supabase
     .from('repartos')
@@ -518,7 +531,8 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
   if (insertRepartoError || !newReparto) {
     console.error('Supabase addReparto error:', insertRepartoError?.message || 'Failed to get new reparto ID');
-    return { success: false, message: 'Error al crear el reparto.' };
+    const specificMessage = insertRepartoError?.message ? `Error de base de datos: ${insertRepartoError.message}` : 'Error al crear el reparto.';
+    return { success: false, message: specificMessage };
   }
 
   const repartoId = newReparto.id;
@@ -530,7 +544,7 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
       valor_entrega: detalle.valor_entrega,
       detalle_entrega: detalle.detalle_entrega,
       orden_visita: index,
-      estado_entrega: detalle.estado_entrega || 'pendiente', // Default if not provided
+      estado_entrega: detalle.estado_entrega || 'pendiente', 
     }));
 
     const { error: insertDetallesError } = await supabase
@@ -539,8 +553,9 @@ export async function addRepartoAction(formData: RepartoFormData): Promise<{ suc
 
     if (insertDetallesError) {
       console.error('Supabase addDetallesReparto error:', insertDetallesError.message);
-      await supabase.from('repartos').delete().eq('id', repartoId);
-      return { success: false, message: 'Error al asociar ítems de entrega al reparto. Se revirtió la creación del reparto.' };
+      await supabase.from('repartos').delete().eq('id', repartoId); // Rollback
+      const specificMessage = insertDetallesError.message ? `Error de base de datos: ${insertDetallesError.message}` : 'Error al asociar ítems de entrega. Se revirtió la creación del reparto.';
+      return { success: false, message: specificMessage };
     }
   }
 
@@ -555,9 +570,9 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
     return { success: false, errors: validationResult.error.errors };
   }
   const { fecha_reparto, repartidor_id, cliente_id, zona_id, tanda, estado, detalles_reparto, observaciones } = validationResult.data;
-  const finalClienteId = cliente_id === "___NO_CLIENT_PRINCIPAL___" ? null : cliente_id;
+  const finalClienteId = cliente_id === "___NO_CLIENTE_PRINCIPAL___" ? null : cliente_id;
 
-  const { error: updateRepartoError } = await supabase
+  const { data: updatedRepartoDataFromDB, error: updateRepartoError } = await supabase
     .from('repartos')
     .update({
       fecha_reparto,
@@ -575,7 +590,8 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
 
   if (updateRepartoError) {
     console.error('Supabase updateReparto error:', updateRepartoError.message);
-    return { success: false, message: 'Error al actualizar el reparto.' };
+    const specificMessage = updateRepartoError.message ? `Error de base de datos: ${updateRepartoError.message}` : 'Error al actualizar el reparto.';
+    return { success: false, message: specificMessage };
   }
 
   const { error: deleteDetallesError } = await supabase
@@ -585,7 +601,8 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
 
   if (deleteDetallesError) {
     console.error('Supabase delete old detalles_reparto error:', deleteDetallesError.message);
-    return { success: false, message: 'Error al actualizar ítems de entrega (eliminación).' };
+    const specificMessage = deleteDetallesError.message ? `Error de base de datos: ${deleteDetallesError.message}` : 'Error al actualizar ítems de entrega (eliminación).';
+    return { success: false, message: specificMessage };
   }
 
   if (detalles_reparto && detalles_reparto.length > 0) {
@@ -604,20 +621,15 @@ export async function updateRepartoAction(repartoId: number, formData: RepartoFo
 
     if (insertDetallesError) {
       console.error('Supabase addDetallesReparto (update) error:', insertDetallesError.message);
-      return { success: false, message: 'Error al actualizar ítems de entrega (inserción).' };
+      const specificMessage = insertDetallesError.message ? `Error de base de datos: ${insertDetallesError.message}` : 'Error al actualizar ítems de entrega (inserción).';
+      return { success: false, message: specificMessage };
     }
   }
   
   revalidatePath('/Repartos');
   revalidatePath(`/Repartos/${repartoId}/report`); 
-
-  const { data: updatedRepartoData } = await supabase
-    .from('repartos')
-    .select('id, cliente_id, clientes (nombre)')
-    .eq('id', repartoId)
-    .single();
   
-  const clienteNombreParaToast = (updatedRepartoData as any)?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
+  const clienteNombreParaToast = (updatedRepartoDataFromDB as any)?.clientes?.nombre || (finalClienteId ? 'Cliente Existente' : 'Reparto General');
 
   return { success: true, reparto: { id: repartoId, cliente_principal_nombre: clienteNombreParaToast } as Reparto };
 }
@@ -630,7 +642,8 @@ export async function deleteRepartoAction(repartoId: number): Promise<{ success:
 
   if (error) {
     console.error('Supabase deleteReparto error:', error.message);
-    return { success: false, message: 'Error al eliminar el reparto.' };
+    const specificMessage = error.message ? `Error de base de datos: ${error.message}` : 'Error al eliminar el reparto.';
+    return { success: false, message: specificMessage };
   }
 
   revalidatePath('/Repartos');
@@ -714,8 +727,6 @@ export async function getRepartoByIdForReport(repartoId: number): Promise<{ repa
 
 // Mobile Dashboard Actions
 export async function getDriverInfo(driverId: string): Promise<MobileDriverInfo | null> {
-  // In a real app, fetch from your 'usuarios' or 'repartidores' table
-  // For now, returning mock data or fetching from repartidores
   const { data, error } = await supabase
     .from('repartidores')
     .select('id, nombre')
@@ -724,7 +735,7 @@ export async function getDriverInfo(driverId: string): Promise<MobileDriverInfo 
 
   if (error || !data) {
     console.error('Error fetching driver info for dashboard:', error?.message);
-    return null; // Or a default driver
+    return null; 
   }
   return data;
 }
@@ -735,12 +746,25 @@ export async function getDriverDashboardTasks(driverId: string): Promise<{
   completed: MobileDashboardTask[];
 }> {
   const today = new Date();
-  const startDate = format(startOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-  const endDate = format(endOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+  // const startDate = format(startOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"); // Not used directly in query
+  // const endDate = format(endOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"); // Not used directly in query
 
   const { data: repartosHoy, error: repartosError } = await supabase
     .from('repartos')
-    .select('id, fecha_reparto, observaciones, detalles_reparto(*, clientes_reparto(*))')
+    .select(`
+      id, 
+      fecha_reparto, 
+      observaciones,
+      detalles_reparto (
+        *,
+        clientes_reparto (
+          nombre_reparto,
+          direccion_reparto,
+          rango_horario,
+          telefono_reparto
+        )
+      )
+    `)
     .eq('repartidor_id', driverId)
     .gte('fecha_reparto', format(startOfDay(today), 'yyyy-MM-dd'))
     .lte('fecha_reparto', format(endOfDay(today), 'yyyy-MM-dd'));
@@ -755,10 +779,10 @@ export async function getDriverDashboardTasks(driverId: string): Promise<{
   repartosHoy.forEach(reparto => {
     (reparto.detalles_reparto as any[])?.forEach(detalle => {
       allTasks.push({
-        ...detalle,
-        reparto_fecha: reparto.fecha_reparto,
+        ...detalle, // This already includes id, reparto_id, cliente_reparto_id, estado_entrega etc.
+        reparto_fecha: reparto.fecha_reparto, // Add parent reparto info
         reparto_observaciones: reparto.observaciones,
-        // Enrich with clientes_reparto data
+        // Enrich with clientes_reparto data (already nested from Supabase query)
         cliente_reparto_nombre: (detalle.clientes_reparto as any)?.nombre_reparto,
         cliente_reparto_direccion: (detalle.clientes_reparto as any)?.direccion_reparto,
         cliente_reparto_horario_preferido: (detalle.clientes_reparto as any)?.rango_horario,
@@ -780,21 +804,33 @@ export async function updateDetalleRepartoStatusAction(detalleRepartoId: number,
     .from('detalles_reparto')
     .update({ estado_entrega: nuevoEstado, updated_at: new Date().toISOString() })
     .eq('id', detalleRepartoId)
-    .select('*, clientes_reparto(*)') // Fetch enriched data
+    .select(`
+      *, 
+      clientes_reparto(
+        nombre_reparto, 
+        direccion_reparto, 
+        rango_horario, 
+        telefono_reparto
+      ),
+      repartos(fecha_reparto, observaciones)
+    `) 
     .single();
 
   if (error || !data) {
     console.error('Error updating detalle_reparto status:', error?.message);
-    return { success: false, message: 'Error al actualizar estado de la entrega.' };
+    const specificMessage = error?.message ? `Error de base de datos: ${error.message}` : 'Error al actualizar estado de la entrega.';
+    return { success: false, message: specificMessage };
   }
   
-  // Enrich the returned task
+  // Enrich the returned task with parent reparto info for consistency
   const enrichedTask: MobileDashboardTask = {
     ...data,
     cliente_reparto_nombre: (data.clientes_reparto as any)?.nombre_reparto,
     cliente_reparto_direccion: (data.clientes_reparto as any)?.direccion_reparto,
     cliente_reparto_horario_preferido: (data.clientes_reparto as any)?.rango_horario,
     cliente_reparto_telefono: (data.clientes_reparto as any)?.telefono_reparto,
+    reparto_fecha: (data.repartos as any)?.fecha_reparto,
+    reparto_observaciones: (data.repartos as any)?.observaciones,
   };
 
 
@@ -803,13 +839,9 @@ export async function updateDetalleRepartoStatusAction(detalleRepartoId: number,
 }
 
 export async function logoutDriverAction(): Promise<{ success: boolean }> {
-  // Placeholder for actual logout logic (e.g., clearing session, redirecting)
   console.log("Driver logout action called");
-  // In a real app, you would:
-  // - Call Supabase auth.signOut() if using Supabase Auth for drivers
-  // - Clear any session cookies or tokens
-  // - Potentially redirect the user
-  revalidatePath('/mobile-dashboard'); // May not be necessary if redirecting
+  revalidatePath('/mobile-dashboard'); 
   return { success: true };
 }
     
+
